@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Student Prediction System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-tachometer-alt text-primary me-2"></i>
+            Admin Dashboard
+        </h2>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Students</h5>
+                        <h2 class="mb-0">{{ total_students }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">✅ Safe</h5>
+                        <h2 class="mb-0">{{ safe_count }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🟡 Warning</h5>
+                        <h2 class="mb-0">{{ warning_count }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🔴 High Risk</h5>
+                        <h2 class="mb-0">{{ high_risk_count }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Students Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>All Students
+                </h5>
+                <div>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="riskFilter" id="all" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="all">All</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="safe" autocomplete="off">
+                        <label class="btn btn-outline-success" for="safe">Safe</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="warning" autocomplete="off">
+                        <label class="btn btn-outline-warning" for="warning">Warning</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="high_risk" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="high_risk">High Risk</label>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="studentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Class</th>
+                                    <th>Risk Level</th>
+                                    <th>Risk Score</th>
+                                    <th>Contact</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr data-risk="{{ student.current_risk_level }}">
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.name }}</td>
+                                    <td>{{ student.class_name }}</td>
+                                    <td>
+                                        {% if student.current_risk_level == 'safe' %}
+                                            <span class="badge bg-success">✅ Safe</span>
+                                        {% elif student.current_risk_level == 'warning' %}
+                                            <span class="badge bg-warning">🟡 Warning</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">🔴 High Risk</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar 
+                                                {% if student.risk_score < 0.3 %}bg-success
+                                                {% elif student.risk_score < 0.7 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ (student.risk_score * 100)|round(1) }}%">
+                                                {{ (student.risk_score * 100)|round(1) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if student.email %}
+                                            <small>{{ student.email }}</small><br>
+                                        {% endif %}
+                                        {% if student.phone %}
+                                            <small>{{ student.phone }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" title="Send Alert">
+                                                <i class="fas fa-bell"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No students found</h5>
+                        <p class="text-muted">Upload student data to get started.</p>
+                        <a href="{{ url_for('upload_data') }}" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i>Upload Data
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filter students by risk level
+document.querySelectorAll('input[name="riskFilter"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const filterValue = this.id;
+        const rows = document.querySelectorAll('#studentsTable tbody tr');
+        
+        rows.forEach(row => {
+            const riskLevel = row.getAttribute('data-risk');
+            if (filterValue === 'all' || riskLevel === filterValue) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

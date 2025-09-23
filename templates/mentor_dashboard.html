@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Mentor Dashboard - Student Prediction System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-users text-info me-2"></i>
+            Mentor Dashboard
+        </h2>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🔴 High Risk Students</h5>
+                        <h2 class="mb-0">{{ high_risk_students|length }}</h2>
+                        <small>Require immediate attention</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🟡 Warning Students</h5>
+                        <h2 class="mb-0">{{ warning_students|length }}</h2>
+                        <small>Monitor closely</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- High Risk Students -->
+{% if high_risk_students %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-circle me-2"></i>High Risk Students - Immediate Action Required
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Class</th>
+                                <th>Risk Score</th>
+                                <th>Contact</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in high_risk_students %}
+                            <tr class="risk-high">
+                                <td>{{ student.student_id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.class_name }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-danger" role="progressbar" 
+                                             style="width: {{ (student.risk_score * 100)|round(1) }}%">
+                                            {{ (student.risk_score * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if student.email %}
+                                        <small><i class="fas fa-envelope me-1"></i>{{ student.email }}</small><br>
+                                    {% endif %}
+                                    {% if student.phone %}
+                                        <small><i class="fas fa-phone me-1"></i>{{ student.phone }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary" title="Contact Student">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        <button class="btn btn-warning" title="Schedule Meeting">
+                                            <i class="fas fa-calendar"></i>
+                                        </button>
+                                        <button class="btn btn-info" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Warning Students -->
+{% if warning_students %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Warning Students - Monitor Closely
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Class</th>
+                                <th>Risk Score</th>
+                                <th>Contact</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in warning_students %}
+                            <tr class="risk-warning">
+                                <td>{{ student.student_id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.class_name }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-warning" role="progressbar" 
+                                             style="width: {{ (student.risk_score * 100)|round(1) }}%">
+                                            {{ (student.risk_score * 100)|round(1) }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if student.email %}
+                                        <small><i class="fas fa-envelope me-1"></i>{{ student.email }}</small><br>
+                                    {% endif %}
+                                    {% if student.phone %}
+                                        <small><i class="fas fa-phone me-1"></i>{{ student.phone }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-primary" title="Contact Student">
+                                            <i class="fas fa-comment"></i>
+                                        </button>
+                                        <button class="btn btn-info" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not high_risk_students and not warning_students %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-smile fa-3x text-success mb-3"></i>
+                <h4 class="text-success">Great News!</h4>
+                <p class="text-muted">No students currently require immediate attention. All assigned students are performing well.</p>
+                <small class="text-muted">Keep monitoring for any changes in student performance.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-primary">
+                                <i class="fas fa-chart-line me-2"></i>
+                                View Reports
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-success">
+                                <i class="fas fa-comments me-2"></i>
+                                Send Messages
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-info">
+                                <i class="fas fa-calendar me-2"></i>
+                                Schedule Meetings
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-warning">
+                                <i class="fas fa-bell me-2"></i>
+                                Set Alerts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

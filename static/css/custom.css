@@ -1,0 +1,83 @@
+/* Custom styles for Student Dashboard */
+.jumbotron {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+.badge {
+    font-size: 0.9em;
+    padding: 0.5em 0.7em;
+}
+
+.btn-group-sm > .btn {
+    border-radius: 4px;
+}
+
+/* Risk level colors */
+.risk-safe {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+}
+
+.risk-warning {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
+.risk-high {
+    background-color: #f8d7da;
+    border-left: 4px solid #dc3545;
+}
+
+/* Chat styles for future chatbot */
+.chat-container {
+    height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #f8f9fa;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.chat-message.user {
+    background-color: #007bff;
+    color: white;
+    margin-left: 20%;
+}
+
+.chat-message.bot {
+    background-color: #e9ecef;
+    color: #495057;
+    margin-right: 20%;
+}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Data - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-upload text-primary me-2"></i>
+            Upload Student Data
+        </h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-upload me-2"></i>File Upload
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="data_type" class="form-label">Data Type</label>
+                        <select class="form-select" id="data_type" name="data_type" required>
+                            <option value="">Select data type...</option>
+                            <option value="students">Student Information</option>
+                            <option value="attendance">Attendance Records</option>
+                            <option value="test_scores">Test Scores</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Upload File</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv,.xlsx,.xls" required>
+                        <div class="form-text">Supported formats: CSV, Excel (.xlsx, .xls). Maximum file size: 16MB</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>Upload & Process
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>File Format Requirements
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Student Information</h6>
+                <small class="text-muted">Required columns: student_id, name, class<br>
+                Optional: email, phone, guardian_email, guardian_phone</small>
+                
+                <hr>
+                
+                <h6>Attendance Records</h6>
+                <small class="text-muted">Required columns: student_id, date, status<br>
+                Optional: subject<br>
+                Status values: present, absent, late</small>
+                
+                <hr>
+                
+                <h6>Test Scores</h6>
+                <small class="text-muted">Required columns: student_id, subject, test_name, score, max_score, test_date</small>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-download me-2"></i>Sample Files
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-download me-2"></i>Students Template
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-download me-2"></i>Attendance Template
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-download me-2"></i>Test Scores Template
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
