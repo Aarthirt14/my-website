@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Faculty Dashboard - Academic Portal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-chalkboard-teacher text-primary me-2"></i>
+            Faculty Dashboard
+        </h2>
+    </div>
+</div>
+
+<!-- Enhanced Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">Total Students</h5>
+                        <h2 class="mb-0">{{ total_students }}</h2>
+                        <small>Active enrollment</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">✅ Safe</h5>
+                        <h2 class="mb-0">{{ safe_count }}</h2>
+                        <small>{{ ((safe_count / total_students * 100) if total_students > 0 else 0)|round(1) }}% of students</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🟡 Warning</h5>
+                        <h2 class="mb-0">{{ warning_count }}</h2>
+                        <small>{{ ((warning_count / total_students * 100) if total_students > 0 else 0)|round(1) }}% need attention</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title">🔴 High Risk</h5>
+                        <h2 class="mb-0">{{ high_risk_count }}</h2>
+                        <small>{{ ((high_risk_count / total_students * 100) if total_students > 0 else 0)|round(1) }}% urgent intervention</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-exclamation-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Risk Analysis Charts -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Risk Distribution
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="riskPieChart" style="height: 300px;">
+                    <canvas id="riskChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Risk Factors Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="factorsChart" style="height: 300px;">
+                    <canvas id="factorsBarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Management Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tools me-2"></i>Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-primary" onclick="location.href='#'">
+                                <i class="fas fa-calendar me-2"></i>Manage Timetable
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-success" onclick="location.href='#'">
+                                <i class="fas fa-tasks me-2"></i>Add Assignment
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-info" onclick="location.href='#'">
+                                <i class="fas fa-clipboard-list me-2"></i>Enter Marks
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-warning" onclick="location.href='#'">
+                                <i class="fas fa-money-bill me-2"></i>Manage Fees
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-secondary" onclick="location.href='#'">
+                                <i class="fas fa-envelope me-2"></i>Send Email
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                            <button class="btn btn-outline-dark" onclick="window.print()">
+                                <i class="fas fa-file-pdf me-2"></i>Generate Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Students Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Student Academic & Financial Overview
+                </h5>
+                <div>
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="riskFilter" id="all" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="all">All</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="safe" autocomplete="off">
+                        <label class="btn btn-outline-success" for="safe">Safe</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="warning" autocomplete="off">
+                        <label class="btn btn-outline-warning" for="warning">Warning</label>
+                        
+                        <input type="radio" class="btn-check" name="riskFilter" id="high_risk" autocomplete="off">
+                        <label class="btn btn-outline-danger" for="high_risk">High Risk</label>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="studentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Class</th>
+                                    <th>Risk Status</th>
+                                    <th>Risk Score</th>
+                                    <th>Academic Issues</th>
+                                    <th>Financial Status</th>
+                                    <th>Recommendations</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr data-risk="{{ student.current_risk_level }}">
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.name }}</td>
+                                    <td>{{ student.class_name }}</td>
+                                    <td>
+                                        {% if student.current_risk_level == 'safe' %}
+                                            <span class="badge bg-success">✅ Safe</span>
+                                        {% elif student.current_risk_level == 'warning' %}
+                                            <span class="badge bg-warning">🟡 Warning</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">🔴 High Risk</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-2">{{ student.risk_score or 0 }}/5</span>
+                                            <div class="progress" style="width: 60px; height: 8px;">
+                                                <div class="progress-bar 
+                                                    {% if student.risk_score <= 0 %}bg-success
+                                                    {% elif student.risk_score <= 2 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    role="progressbar" 
+                                                    style="width: {{ ((student.risk_score or 0) / 5 * 100)|round }}%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <div><i class="fas fa-calendar-check me-1"></i>Attendance: N/A</div>
+                                            <div><i class="fas fa-tasks me-1"></i>Assignments: N/A</div>
+                                            <div><i class="fas fa-chart-bar me-1"></i>Internal Marks: N/A</div>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">No Data</span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if student.current_risk_level == 'safe' %}
+                                                Continue monitoring
+                                            {% elif student.current_risk_level == 'warning' %}
+                                                Schedule check-in
+                                            {% else %}
+                                                Immediate intervention required
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" title="View Details" onclick="viewStudentDetails('{{ student.student_id }}')">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" title="Send Message" onclick="sendMessage('{{ student.student_id }}')">
+                                                <i class="fas fa-comment"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" title="Schedule Meeting" onclick="scheduleMeeting('{{ student.student_id }}')">
+                                                <i class="fas fa-calendar-plus"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No students found</h5>
+                        <p class="text-muted">Upload student data to get started with risk assessment.</p>
+                        <a href="{{ url_for('upload_data') }}" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i>Upload Data
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Alerts Modal -->
+<div class="modal fade" id="alertsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-bell me-2"></i>Recent Risk Assessments
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if recent_assessments %}
+                    {% for assessment in recent_assessments %}
+                    <div class="alert alert-{% if assessment.risk_level == 'safe' %}success{% elif assessment.risk_level == 'warning' %}warning{% else %}danger{% endif %}">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>{{ assessment.student_id }}</strong>
+                                <span class="badge bg-{% if assessment.risk_level == 'safe' %}success{% elif assessment.risk_level == 'warning' %}warning{% else %}danger{% endif %}">
+                                    {{ assessment.risk_level.title() }}
+                                </span>
+                            </div>
+                            <small>{{ assessment.assessment_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        {% if assessment.recommendations %}
+                            <small class="text-muted">{{ assessment.recommendations }}</small>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No recent assessments available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Filter students by risk level
+document.querySelectorAll('input[name="riskFilter"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const filterValue = this.id;
+        const rows = document.querySelectorAll('#studentsTable tbody tr');
+        
+        rows.forEach(row => {
+            const riskLevel = row.getAttribute('data-risk');
+            if (filterValue === 'all' || riskLevel === filterValue) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+});
+
+// Risk Distribution Pie Chart
+const ctx1 = document.getElementById('riskChart').getContext('2d');
+new Chart(ctx1, {
+    type: 'doughnut',
+    data: {
+        labels: ['Safe ✅', 'Warning 🟡', 'High Risk 🔴'],
+        datasets: [{
+            data: [{{ safe_count }}, {{ warning_count }}, {{ high_risk_count }}],
+            backgroundColor: ['#28a745', '#ffc107', '#dc3545'],
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Risk Factors Bar Chart (sample data - will be dynamic with real data)
+const ctx2 = document.getElementById('factorsBarChart').getContext('2d');
+new Chart(ctx2, {
+    type: 'bar',
+    data: {
+        labels: ['Attendance <70%', 'Missing Assignments', 'Low Internal Marks', 'Fee Issues'],
+        datasets: [{
+            label: 'Students Affected',
+            data: [5, 8, 3, 12], // Sample data
+            backgroundColor: ['#17a2b8', '#6c757d', '#fd7e14', '#dc3545'],
+            borderColor: ['#138496', '#495057', '#fd7e14', '#dc3545'],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Number of Students'
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+
+// Student action functions
+function viewStudentDetails(studentId) {
+    alert('View details for student: ' + studentId + '\n(Feature will be implemented)');
+}
+
+function sendMessage(studentId) {
+    alert('Send message to student: ' + studentId + '\n(Feature will be implemented)');
+}
+
+function scheduleMeeting(studentId) {
+    alert('Schedule meeting with student: ' + studentId + '\n(Feature will be implemented)');
+}
+
+// Show recent alerts modal button (can be added to header)
+function showAlertsModal() {
+    new bootstrap.Modal(document.getElementById('alertsModal')).show();
+}
+</script>
+{% endblock %}

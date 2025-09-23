@@ -34,11 +34,24 @@
                                     <i class="fas fa-upload me-1"></i>Upload Data
                                 </a>
                             </li>
-                        {% elif current_user.role == 'mentor' %}
+                        {% elif current_user.role == 'faculty' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ url_for('mentor_dashboard') }}">
-                                    <i class="fas fa-users me-1"></i>My Students
+                                <a class="nav-link" href="{{ url_for('faculty_dashboard') }}">
+                                    <i class="fas fa-chalkboard-teacher me-1"></i>Faculty Dashboard
                                 </a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="facultyDropdown" role="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-cogs me-1"></i>Manage
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('manage_timetable') }}"><i class="fas fa-calendar me-1"></i>Timetable</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('manage_assignments') }}"><i class="fas fa-tasks me-1"></i>Assignments</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('manage_exams') }}"><i class="fas fa-clipboard-list me-1"></i>Exams & Marks</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('manage_fees') }}"><i class="fas fa-money-bill me-1"></i>Fee Management</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('faculty_dashboard') }}"><i class="fas fa-chart-bar me-1"></i>Analytics</a></li>
+                                </ul>
                             </li>
                         {% else %}
                             <li class="nav-item">
@@ -98,7 +111,8 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     <script src="{{ url_for('static', filename='js/custom.js') }}"></script>
     {% block scripts %}{% endblock %}
 </body>

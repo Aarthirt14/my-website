@@ -34,7 +34,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='student')  # student, mentor, admin
+    role = db.Column(db.String(20), nullable=False, default='student')  # student, faculty, admin
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def set_password(self, password):
@@ -74,14 +74,269 @@ class TestScore(db.Model):
     test_date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class Faculty(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    faculty_id = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20))
+    department = db.Column(db.String(50))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Assignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    subject = db.Column(db.String(50), nullable=False)
+    class_name = db.Column(db.String(20), nullable=False)
+    due_date = db.Column(db.DateTime, nullable=False)
+    max_marks = db.Column(db.Float, default=100)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class AssignmentSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
+    student_id = db.Column(db.String(20), db.ForeignKey('student.student_id'), nullable=False)
+    submitted_at = db.Column(db.DateTime)
+    marks_obtained = db.Column(db.Float)
+    status = db.Column(db.String(20), default='pending')  # pending, submitted, graded, missing
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Exam(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(50), nullable=False)
+    class_name = db.Column(db.String(20), nullable=False)
+    exam_date = db.Column(db.DateTime, nullable=False)
+    max_marks = db.Column(db.Float, nullable=False)
+    exam_type = db.Column(db.String(20), nullable=False)  # internal, final, quiz
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ExamResult(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    exam_id = db.Column(db.Integer, db.ForeignKey('exam.id'), nullable=False)
+    student_id = db.Column(db.String(20), db.ForeignKey('student.student_id'), nullable=False)
+    marks_obtained = db.Column(db.Float, nullable=False)
+    percentage = db.Column(db.Float)
+    grade = db.Column(db.String(5))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Fee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.String(20), db.ForeignKey('student.student_id'), nullable=False)
+    fee_type = db.Column(db.String(50), nullable=False)  # tuition, library, lab, hostel
+    amount = db.Column(db.Float, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    paid_amount = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default='pending')  # pending, partial, paid, overdue
+    payment_date = db.Column(db.Date)
+    academic_year = db.Column(db.String(10), nullable=False)
+    semester = db.Column(db.String(10))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Timetable(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    class_name = db.Column(db.String(20), nullable=False)
+    subject = db.Column(db.String(50), nullable=False)
+    faculty_id = db.Column(db.Integer, db.ForeignKey('faculty.id'), nullable=False)
+    day_of_week = db.Column(db.String(10), nullable=False)  # monday, tuesday, etc.
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+    room_number = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 class RiskAssessment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.String(20), db.ForeignKey('student.student_id'), nullable=False)
     risk_level = db.Column(db.String(20), nullable=False)
-    risk_score = db.Column(db.Float, nullable=False)
-    factors = db.Column(db.Text)  # JSON string of risk factors
+    risk_score = db.Column(db.Integer, nullable=False)  # Changed to Integer for new scoring system
+    attendance_risk = db.Column(db.Boolean, default=False)
+    assignment_risk = db.Column(db.Boolean, default=False)
+    marks_risk = db.Column(db.Boolean, default=False)
+    fee_risk = db.Column(db.Boolean, default=False)
+    factors = db.Column(db.Text)  # JSON string of detailed risk factors
+    recommendations = db.Column(db.Text)  # Academic and financial recommendations
     assessment_date = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+
+# Risk Scoring Functions
+def calculate_attendance_percentage(student_id, days=30):
+    """Calculate attendance percentage for the last N days"""
+    from_date = datetime.now().date() - timedelta(days=days)
+    
+    total_records = AttendanceRecord.query.filter(
+        AttendanceRecord.student_id == student_id,
+        AttendanceRecord.date >= from_date
+    ).count()
+    
+    if total_records == 0:
+        return 100  # No records means no risk
+    
+    present_records = AttendanceRecord.query.filter(
+        AttendanceRecord.student_id == student_id,
+        AttendanceRecord.date >= from_date,
+        AttendanceRecord.status == 'present'
+    ).count()
+    
+    return (present_records / total_records) * 100
+
+def count_missing_assignments(student_id):
+    """Count missing assignments for a student"""
+    # Count explicitly marked missing assignments
+    missing_count = AssignmentSubmission.query.filter(
+        AssignmentSubmission.student_id == student_id,
+        AssignmentSubmission.status == 'missing'
+    ).count()
+    
+    # Count assignments that are past due and not submitted by this specific student
+    current_time = datetime.now()
+    
+    # Get all assignments that are past due
+    past_due_assignment_ids = db.session.query(Assignment.id).filter(
+        Assignment.due_date < current_time
+    ).subquery()
+    
+    # Get submissions by this student for past due assignments
+    student_submissions = db.session.query(AssignmentSubmission.assignment_id).filter(
+        AssignmentSubmission.student_id == student_id,
+        AssignmentSubmission.assignment_id.in_(past_due_assignment_ids)
+    ).subquery()
+    
+    # Count past due assignments with no submission from this student
+    unsubmitted_count = db.session.query(past_due_assignment_ids.c.id).filter(
+        past_due_assignment_ids.c.id.notin_(student_submissions)
+    ).count()
+    
+    return missing_count + unsubmitted_count
+
+def calculate_internal_marks_percentage(student_id):
+    """Calculate average internal marks percentage"""
+    internal_exams = db.session.query(ExamResult).join(Exam).filter(
+        ExamResult.student_id == student_id,
+        Exam.exam_type == 'internal'
+    ).all()
+    
+    if not internal_exams:
+        return 100  # No records means no risk
+    
+    total_percentage = sum(result.percentage or 0 for result in internal_exams)
+    return total_percentage / len(internal_exams)
+
+def check_fee_status(student_id):
+    """Check if student has pending or overdue fees"""
+    current_date = datetime.now().date()
+    
+    # Check for overdue fees
+    overdue_fees = Fee.query.filter(
+        Fee.student_id == student_id,
+        Fee.due_date < current_date,
+        Fee.status.in_(['pending', 'partial'])
+    ).count()
+    
+    # Check for pending fees
+    pending_fees = Fee.query.filter(
+        Fee.student_id == student_id,
+        Fee.status == 'pending'
+    ).count()
+    
+    return overdue_fees > 0 or pending_fees > 0
+
+def update_student_risk_score(student_id):
+    """Update risk score for a student based on enhanced algorithm"""
+    student = Student.query.filter_by(student_id=student_id).first()
+    if not student:
+        return
+    
+    risk_score = 0
+    risk_factors = []
+    
+    # 1. Attendance Risk (+1 if <70%)
+    attendance_percentage = calculate_attendance_percentage(student_id)
+    attendance_risk = attendance_percentage < 70
+    if attendance_risk:
+        risk_score += 1
+        risk_factors.append(f"Low attendance: {attendance_percentage:.1f}%")
+    
+    # 2. Assignment Risk (+1 if >1 missing)
+    missing_assignments = count_missing_assignments(student_id)
+    assignment_risk = missing_assignments > 1
+    if assignment_risk:
+        risk_score += 1
+        risk_factors.append(f"Missing assignments: {missing_assignments}")
+    
+    # 3. Internal Marks Risk (+1 if <50%)
+    internal_marks = calculate_internal_marks_percentage(student_id)
+    marks_risk = internal_marks < 50
+    if marks_risk:
+        risk_score += 1
+        risk_factors.append(f"Low internal marks: {internal_marks:.1f}%")
+    
+    # 4. Fee Risk (+2 if pending/overdue)
+    fee_risk = check_fee_status(student_id)
+    if fee_risk:
+        risk_score += 2
+        risk_factors.append("Pending/overdue fees")
+    
+    # Determine risk level
+    if risk_score == 0:
+        risk_level = 'safe'
+    elif risk_score <= 2:
+        risk_level = 'warning'
+    else:
+        risk_level = 'high_risk'
+    
+    # Update student record
+    student.risk_score = risk_score
+    student.current_risk_level = risk_level
+    
+    # Create or update risk assessment
+    assessment = RiskAssessment.query.filter_by(
+        student_id=student_id
+    ).order_by(RiskAssessment.assessment_date.desc()).first()
+    
+    # Only create new assessment if risk level changed or it's been more than a day
+    create_new = (not assessment or 
+                 assessment.risk_level != risk_level or
+                 (datetime.now() - assessment.assessment_date).days >= 1)
+    
+    if create_new:
+        new_assessment = RiskAssessment(
+            student_id=student_id,
+            risk_level=risk_level,
+            risk_score=risk_score,
+            attendance_risk=attendance_risk,
+            assignment_risk=assignment_risk,
+            marks_risk=marks_risk,
+            fee_risk=fee_risk,
+            factors=json.dumps(risk_factors),
+            recommendations=generate_recommendations(risk_factors)
+        )
+        db.session.add(new_assessment)
+    
+    db.session.commit()
+    return risk_score
+
+def generate_recommendations(risk_factors):
+    """Generate academic and financial recommendations based on risk factors"""
+    recommendations = []
+    
+    for factor in risk_factors:
+        if "attendance" in factor.lower():
+            recommendations.append("Academic: Schedule regular check-ins, provide attendance incentives")
+        elif "assignment" in factor.lower():
+            recommendations.append("Academic: Provide assignment reminders, offer extended deadlines if needed")
+        elif "marks" in factor.lower():
+            recommendations.append("Academic: Arrange tutoring sessions, review study methods")
+        elif "fee" in factor.lower():
+            recommendations.append("Financial: Contact for payment plan, discuss scholarship opportunities")
+    
+    if not recommendations:
+        recommendations.append("Continue current support and monitor progress")
+    
+    return "; ".join(recommendations)
 
 # Routes
 @app.route('/')
@@ -89,8 +344,8 @@ def index():
     if current_user.is_authenticated:
         if current_user.role == 'admin':
             return redirect(url_for('admin_dashboard'))
-        elif current_user.role == 'mentor':
-            return redirect(url_for('mentor_dashboard'))
+        elif current_user.role == 'faculty':
+            return redirect(url_for('faculty_dashboard'))
         else:
             return redirect(url_for('student_dashboard'))
     return render_template('index.html')
@@ -117,7 +372,7 @@ def register():
         username = request.form['username']
         email = request.form['email']
         password = request.form['password']
-        role = 'student'  # Force all public registrations to be students
+        role = request.form.get('role', 'student')  # Allow faculty registration
         
         # Check if user already exists
         if User.query.filter_by(username=username).first():
@@ -133,6 +388,18 @@ def register():
         user.set_password(password)
         
         db.session.add(user)
+        db.session.flush()  # Get the user ID
+        
+        # Create Faculty record if registering as faculty
+        if role == 'faculty':
+            faculty = Faculty(
+                faculty_id=f"FAC{user.id:04d}",
+                name=username,  # Use username as name initially
+                email=email,
+                user_id=user.id
+            )
+            db.session.add(faculty)
+        
         db.session.commit()
         
         flash('Registration successful! Please login.', 'success')
@@ -174,20 +441,36 @@ def admin_dashboard():
                          students=students,
                          recent_assessments=recent_assessments)
 
-@app.route('/mentor/dashboard')
+@app.route('/faculty/dashboard')
 @login_required
-def mentor_dashboard():
-    if current_user.role != 'mentor':
+def faculty_dashboard():
+    if current_user.role != 'faculty':
         flash('Access denied!', 'error')
         return redirect(url_for('index'))
     
-    # Get students assigned to this mentor (for now, show all high-risk students)
-    high_risk_students = Student.query.filter_by(current_risk_level='high_risk').all()
-    warning_students = Student.query.filter_by(current_risk_level='warning').all()
+    # Get all students and their risk assessments
+    students = Student.query.all()
     
-    return render_template('mentor_dashboard.html', 
-                         high_risk_students=high_risk_students,
-                         warning_students=warning_students)
+    # Update risk scores for all students
+    for student in students:
+        update_student_risk_score(student.student_id)
+    
+    # Get updated statistics
+    total_students = len(students)
+    safe_count = Student.query.filter_by(current_risk_level='safe').count()
+    warning_count = Student.query.filter_by(current_risk_level='warning').count()
+    high_risk_count = Student.query.filter_by(current_risk_level='high_risk').count()
+    
+    # Get recent risk assessments
+    recent_assessments = RiskAssessment.query.order_by(RiskAssessment.assessment_date.desc()).limit(10).all()
+    
+    return render_template('faculty_dashboard.html', 
+                         students=students,
+                         total_students=total_students,
+                         safe_count=safe_count,
+                         warning_count=warning_count,
+                         high_risk_count=high_risk_count,
+                         recent_assessments=recent_assessments)
 
 @app.route('/student/dashboard')
 @login_required
@@ -243,6 +526,62 @@ def upload_data():
             flash('Invalid file format. Please upload CSV or Excel files.', 'error')
     
     return render_template('upload.html')
+
+# Faculty Management Routes
+@app.route('/faculty/timetable')
+@login_required
+def manage_timetable():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    timetable = Timetable.query.filter_by(faculty_id=faculty.id).all()
+    return render_template('manage_timetable.html', timetable=timetable)
+
+@app.route('/faculty/assignments')
+@login_required
+def manage_assignments():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    assignments = Assignment.query.filter_by(faculty_id=faculty.id).all()
+    return render_template('manage_assignments.html', assignments=assignments)
+
+@app.route('/faculty/exams')
+@login_required  
+def manage_exams():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+        
+    exams = Exam.query.filter_by(faculty_id=faculty.id).all()
+    return render_template('manage_exams.html', exams=exams)
+
+@app.route('/faculty/fees')
+@login_required
+def manage_fees():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+        
+    fees = Fee.query.all()  # Faculty can view all fees for management
+    return render_template('manage_fees.html', fees=fees)
 
 def allowed_file(filename):
     """Check if uploaded file has an allowed extension"""
