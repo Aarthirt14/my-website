@@ -1,0 +1,22 @@
+<h2>Edit Marks for {{ student.name }} ({{ student.student_id }})</h2>
+<form method="POST">
+  <table border="1">
+    <tr>
+      <th>Exam</th>
+      <th>Subject</th>
+      <th>Current Marks</th>
+      <th>Edit Marks</th>
+    </tr>
+    {% for exam in exams %}
+    <tr>
+      <td>{{ exam.exam.exam_type }}</td>
+      <td>{{ exam.subject }}</td>
+      <td>{{ exam.marks_obtained }}</td>
+      <td>
+        <input type="number" name="mark_{{ exam.id }}" value="{{ exam.marks_obtained }}" step="0.1">
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">Update Marks</button>
+</form>
