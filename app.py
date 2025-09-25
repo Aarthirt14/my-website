@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 import os
 import pandas as pd
 import numpy as np
@@ -11,9 +12,14 @@ import json
 
 # Initialize Flask app
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # needed for url_for to generate with https
 app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(app.instance_path, 'student_prediction.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(app.instance_path, 'student_prediction.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 300,
+    'pool_pre_ping': True,
+} if os.environ.get('DATABASE_URL') else {}
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
@@ -663,25 +669,29 @@ def create_tables():
     """Create database tables (deprecated - use main block initialization)"""
     db.create_all()
 
-if __name__ == '__main__':
-    # Ensure directories exist
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# Initialize application when imported
+# Ensure directories exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+try:
     os.makedirs(app.instance_path, exist_ok=True)
+except OSError:
+    pass  # Directory already exists or can't create (not critical)
+
+# Initialize database and create admin user
+with app.app_context():
+    # Create all database tables
+    db.create_all()
     
-    # Initialize database and create admin user
-    with app.app_context():
-        # Create all database tables
-        db.create_all()
-        
-        # Create default admin user if not exists
-        admin = User.query.filter_by(username='admin').first()
-        if not admin:
-            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
-            admin = User(username=admin_username, email='admin@school.edu', role='admin')
-            admin.set_password(admin_password)
-            db.session.add(admin)
-            db.session.commit()
-            print(f"Created admin user: {admin_username}")
-    
+    # Create default admin user if not exists
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        admin = User(username=admin_username, email='admin@school.edu', role='admin')
+        admin.set_password(admin_password)
+        db.session.add(admin)
+        db.session.commit()
+        print(f"Created admin user: {admin_username}")
+
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
