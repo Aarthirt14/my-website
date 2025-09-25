@@ -16,10 +16,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Flask Server"
+args = "Student Prediction System"
 
 [[workflows.workflow]]
-name = "Flask Server"
+name = "Student Prediction System"
 author = "agent"
 
 [[workflows.workflow.tasks]]
@@ -33,10 +33,6 @@ outputType = "webview"
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 33405
-externalPort = 3000
 
 [deployment]
 deploymentTarget = "autoscale"
