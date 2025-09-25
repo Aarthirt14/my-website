@@ -1,0 +1,65 @@
+I am building a Flask-based Academic Portal web app. The goal is to have a fully functional Faculty Dashboard. Please enhance my existing app with the following requirements and generate a complete app.py with models, routes, and templates:
+
+1. Faculty Dashboard (core functions)
+
+Edit student marks (ensure proper database relationships with ExamResult and Exam).
+
+Upload student data via CSV/Excel (students, exam results, fee data).
+
+Re-upload files to update or overwrite existing records.
+
+Manage Assignments: Add, edit, update, delete, including file uploads.
+
+Manage Exams: Create, update, delete exams with subject, max marks, and date.
+
+Manage Fees: Update records, upload/re-upload fee CSVs, show pending/paid status.
+
+2. Quick Access Buttons
+
+Faculty dashboard must have working buttons for: Upload Students, Manage Exams, Manage Assignments, Manage Fees.
+
+Each button should navigate to functional pages with forms or upload options.
+
+3. File Upload Handling
+
+Allow CSV/Excel uploads for students, exams, and fees.
+
+Use pandas to process files and update the database.
+
+Ensure re-uploads update existing records instead of creating duplicates.
+
+4. Database
+
+SQLAlchemy models: Student, Exam, Assignment, Fee, ExamResult.
+
+Proper relationships (ExamResult → Exam, Assignment → Student, etc.).
+
+Full CRUD support for all models.
+
+5. UI Enhancements
+
+Use Bootstrap for layout and styling.
+
+Ensure all buttons, upload forms, and management pages work.
+
+Show flash messages for success/error.
+
+6. Deployment
+
+App must run smoothly on Replit.
+
+Include requirements.txt dependencies (flask, flask_sqlalchemy, pandas, openpyxl).
+
+File upload folder must work on Replit (uploads/).
+
+Additional Notes:
+
+Do not generate placeholder buttons; every action must perform the described functionality.
+
+Ensure faculty can edit/add/delete assignments, exams, and fees, not just view them.
+
+Implement safe file handling for re-uploads.
+
+Use Flask templates (.html) for all pages.
+
+Generate the full working app.py along with all necessary templates to implement these features.

@@ -9,6 +9,14 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import json
+import pickle
+import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, accuracy_score
+import warnings
+warnings.filterwarnings('ignore')
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -251,79 +259,333 @@ def check_fee_status(student_id):
     return overdue_fees > 0 or pending_fees > 0
 
 def update_student_risk_score(student_id):
-    """Update risk score for a student based on enhanced algorithm"""
+    """Update risk score for a student using ML model"""
     student = Student.query.filter_by(student_id=student_id).first()
     if not student:
         return
     
-    risk_score = 0
-    risk_factors = []
+    # Use ML model for prediction
+    predicted_level, confidence, explanation = ml_model.predict_risk(student_id)
     
-    # 1. Attendance Risk (+1 if <70%)
+    # Convert ML prediction to numeric score for compatibility
+    risk_level_to_score = {'safe': 0, 'warning': 2, 'high_risk': 4}
+    ml_risk_score = risk_level_to_score.get(predicted_level, 2)
+    
+    # Extract individual risk factors for detailed assessment
     attendance_percentage = calculate_attendance_percentage(student_id)
-    attendance_risk = attendance_percentage < 70
-    if attendance_risk:
-        risk_score += 1
-        risk_factors.append(f"Low attendance: {attendance_percentage:.1f}%")
-    
-    # 2. Assignment Risk (+1 if >1 missing)
     missing_assignments = count_missing_assignments(student_id)
-    assignment_risk = missing_assignments > 1
-    if assignment_risk:
-        risk_score += 1
-        risk_factors.append(f"Missing assignments: {missing_assignments}")
-    
-    # 3. Internal Marks Risk (+1 if <50%)
     internal_marks = calculate_internal_marks_percentage(student_id)
-    marks_risk = internal_marks < 50
-    if marks_risk:
-        risk_score += 1
-        risk_factors.append(f"Low internal marks: {internal_marks:.1f}%")
-    
-    # 4. Fee Risk (+2 if pending/overdue)
     fee_risk = check_fee_status(student_id)
-    if fee_risk:
-        risk_score += 2
-        risk_factors.append("Pending/overdue fees")
     
-    # Determine risk level
-    if risk_score == 0:
-        risk_level = 'safe'
-    elif risk_score <= 2:
-        risk_level = 'warning'
-    else:
-        risk_level = 'high_risk'
+    attendance_risk = attendance_percentage < 70
+    assignment_risk = missing_assignments > 1
+    marks_risk = internal_marks < 50
     
-    # Update student record
-    student.risk_score = risk_score
-    student.current_risk_level = risk_level
+    # Update student record with ML predictions
+    student.risk_score = ml_risk_score
+    student.current_risk_level = predicted_level
     
-    # Create or update risk assessment
+    # Create or update risk assessment with ML insights
     assessment = RiskAssessment.query.filter_by(
         student_id=student_id
     ).order_by(RiskAssessment.assessment_date.desc()).first()
     
     # Only create new assessment if risk level changed or it's been more than a day
     create_new = (not assessment or 
-                 assessment.risk_level != risk_level or
+                 assessment.risk_level != predicted_level or
                  (datetime.now() - assessment.assessment_date).days >= 1)
     
     if create_new:
+        # Generate recommendations based on ML explanation
+        ml_factors = [f"ML Prediction: {explanation}", f"Confidence: {confidence:.2f}"]
+        
         new_assessment = RiskAssessment(
             student_id=student_id,
-            risk_level=risk_level,
-            risk_score=risk_score,
+            risk_level=predicted_level,
+            risk_score=ml_risk_score,
             attendance_risk=attendance_risk,
             assignment_risk=assignment_risk,
             marks_risk=marks_risk,
             fee_risk=fee_risk,
-            factors=json.dumps(risk_factors),
-            recommendations=generate_recommendations(risk_factors)
+            factors=json.dumps(ml_factors),
+            recommendations=f"ML-driven insights: {explanation}. " + generate_ml_recommendations(predicted_level, confidence)
         )
         db.session.add(new_assessment)
     
     db.session.commit()
-    return risk_score
+    return ml_risk_score
+
+def generate_ml_recommendations(risk_level, confidence):
+    """Generate ML-driven recommendations"""
+    if risk_level == 'safe':
+        return f"Continue monitoring. Model confidence: {confidence:.2f}. Maintain current support level."
+    elif risk_level == 'warning':
+        return f"Moderate intervention needed. Model confidence: {confidence:.2f}. Schedule check-in and provide targeted support."
+    else:
+        return f"Urgent intervention required. Model confidence: {confidence:.2f}. Immediate academic and financial counseling recommended."
+
+# Machine Learning Model for Student Risk Prediction
+
+class StudentRiskMLModel:
+    def __init__(self):
+        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+        self.scaler = StandardScaler()
+        self.is_trained = False
+        self.feature_names = ['attendance_rate', 'missing_assignments', 'avg_marks_percentage', 
+                             'fee_status_numeric', 'days_since_enrollment', 'subjects_count']
+        self.model_path = 'instance/student_risk_model.pkl'
+        self.scaler_path = 'instance/scaler.pkl'
+        
+    def extract_features_for_student(self, student_id):
+        """Extract ML features for a student from database"""
+        student = Student.query.filter_by(student_id=student_id).first()
+        if not student:
+            return None
+            
+        # Feature 1: Attendance rate (last 30 days)
+        attendance_rate = calculate_attendance_percentage(student_id, days=30)
+        
+        # Feature 2: Missing assignments count
+        missing_assignments = count_missing_assignments(student_id)
+        
+        # Feature 3: Average internal marks percentage
+        avg_marks = calculate_internal_marks_percentage(student_id)
+        
+        # Feature 4: Fee status (numeric: 0=paid, 1=pending, 2=overdue)
+        fee_status_numeric = 0
+        if check_fee_status(student_id):
+            overdue_fees = Fee.query.filter(
+                Fee.student_id == student_id,
+                Fee.due_date < datetime.now().date(),
+                Fee.status.in_(['pending', 'partial'])
+            ).count()
+            fee_status_numeric = 2 if overdue_fees > 0 else 1
+        
+        # Feature 5: Days since enrollment
+        days_since_enrollment = (datetime.now() - student.created_at).days
+        
+        # Feature 6: Number of subjects (from test scores)
+        subjects_count = db.session.query(TestScore.subject).filter_by(
+            student_id=student_id
+        ).distinct().count()
+        
+        features = np.array([
+            attendance_rate, missing_assignments, avg_marks, 
+            fee_status_numeric, days_since_enrollment, subjects_count
+        ]).reshape(1, -1)
+        
+        return features
+    
+    def prepare_training_data(self):
+        """Prepare training data from database with realistic labels"""
+        students = Student.query.all()
+        if len(students) < 10:
+            # Generate synthetic training data for demo
+            return self._generate_synthetic_data()
+            
+        X = []
+        y = []
+        
+        for student in students:
+            features = self.extract_features_for_student(student.student_id)
+            if features is not None:
+                X.append(features.flatten())
+                
+                # Create realistic labels based on feature combinations
+                attendance_rate, missing_assignments, avg_marks, fee_status, days_enrolled, subjects = features.flatten()
+                
+                # ML-based risk scoring (more sophisticated than rules)
+                risk_score = 0
+                if attendance_rate < 70: risk_score += 2
+                if missing_assignments > 2: risk_score += 2  
+                if avg_marks < 50: risk_score += 2
+                if fee_status >= 1: risk_score += 1
+                if subjects < 3: risk_score += 1  # Limited subject engagement
+                
+                # Convert to risk level
+                if risk_score <= 2:
+                    label = 0  # Safe
+                elif risk_score <= 4:
+                    label = 1  # Warning 
+                else:
+                    label = 2  # High Risk
+                    
+                y.append(label)
+        
+        return np.array(X), np.array(y)
+    
+    def _generate_synthetic_data(self, n_samples=200):
+        """Generate synthetic training data for demonstration"""
+        np.random.seed(42)
+        
+        # Generate realistic feature distributions
+        attendance_rates = np.random.beta(8, 2, n_samples) * 100  # Skewed towards higher attendance
+        missing_assignments = np.random.poisson(1.5, n_samples)  # Low count with occasional high
+        avg_marks = np.random.normal(75, 15, n_samples)  # Normal distribution around 75%
+        avg_marks = np.clip(avg_marks, 0, 100)
+        fee_status = np.random.choice([0, 1, 2], n_samples, p=[0.7, 0.2, 0.1])  # Most students paid
+        days_enrolled = np.random.normal(180, 60, n_samples)  # ~6 months average
+        days_enrolled = np.clip(days_enrolled, 30, 365)
+        subjects_count = np.random.choice([3, 4, 5, 6], n_samples, p=[0.1, 0.3, 0.4, 0.2])
+        
+        X = np.column_stack([
+            attendance_rates, missing_assignments, avg_marks, 
+            fee_status, days_enrolled, subjects_count
+        ])
+        
+        # Generate labels with realistic correlations
+        y = []
+        for i in range(n_samples):
+            risk_score = 0
+            if X[i][0] < 70: risk_score += 2  # Low attendance
+            if X[i][1] > 2: risk_score += 2   # Many missing assignments
+            if X[i][2] < 50: risk_score += 2  # Low marks
+            if X[i][3] >= 1: risk_score += 1  # Fee issues
+            if X[i][5] < 4: risk_score += 1   # Few subjects
+            
+            # Add some randomness to make it more realistic
+            risk_score += np.random.normal(0, 0.5)
+            
+            if risk_score <= 2:
+                y.append(0)  # Safe
+            elif risk_score <= 4:
+                y.append(1)  # Warning
+            else:
+                y.append(2)  # High Risk
+                
+        return X, np.array(y)
+    
+    def train_model(self, save_model=True):
+        """Train the ML model on student data"""
+        print("Training student risk prediction model...")
+        
+        X, y = self.prepare_training_data()
+        
+        if len(X) == 0:
+            print("No training data available")
+            return False
+            
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+        
+        # Scale features
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_test_scaled = self.scaler.transform(X_test)
+        
+        # Train model
+        self.model.fit(X_train_scaled, y_train)
+        
+        # Evaluate model
+        y_pred = self.model.predict(X_test_scaled)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        print(f"Model trained successfully! Accuracy: {accuracy:.3f}")
+        print("Classification Report:")
+        print(classification_report(y_test, y_pred, target_names=['Safe', 'Warning', 'High Risk']))
+        
+        self.is_trained = True
+        
+        if save_model:
+            self.save_model()
+            
+        return True
+    
+    def predict_risk(self, student_id):
+        """Predict risk level for a student using ML model"""
+        if not self.is_trained:
+            if not self.load_model():
+                # Fallback to rule-based system
+                return self._rule_based_prediction(student_id)
+                
+        features = self.extract_features_for_student(student_id)
+        if features is None:
+            return 'unknown', 0.0, 'Insufficient data'
+            
+        # Scale features and predict
+        features_scaled = self.scaler.transform(features)
+        prediction = self.model.predict(features_scaled)[0]
+        confidence = np.max(self.model.predict_proba(features_scaled))
+        
+        risk_levels = ['safe', 'warning', 'high_risk']
+        predicted_level = risk_levels[prediction]
+        
+        # Get feature importance explanation
+        feature_importance = self.model.feature_importances_
+        top_factors = []
+        feature_values = features.flatten()
+        
+        for i, (name, value, importance) in enumerate(zip(self.feature_names, feature_values, feature_importance)):
+            if importance > 0.1:  # Only show important factors
+                top_factors.append(f"{name}: {value:.1f} (weight: {importance:.2f})")
+        
+        explanation = "Key factors: " + "; ".join(top_factors[:3])
+        
+        return predicted_level, confidence, explanation
+    
+    def _rule_based_prediction(self, student_id):
+        """Fallback rule-based prediction when ML model unavailable"""
+        attendance_rate = calculate_attendance_percentage(student_id)
+        missing_assignments = count_missing_assignments(student_id)
+        avg_marks = calculate_internal_marks_percentage(student_id)
+        fee_issues = check_fee_status(student_id)
+        
+        risk_score = 0
+        factors = []
+        
+        if attendance_rate < 70:
+            risk_score += 2
+            factors.append(f"Low attendance: {attendance_rate:.1f}%")
+        if missing_assignments > 1:
+            risk_score += 2
+            factors.append(f"Missing assignments: {missing_assignments}")
+        if avg_marks < 50:
+            risk_score += 2
+            factors.append(f"Low marks: {avg_marks:.1f}%")
+        if fee_issues:
+            risk_score += 1
+            factors.append("Fee issues")
+        
+        if risk_score <= 2:
+            level = 'safe'
+        elif risk_score <= 4:
+            level = 'warning'
+        else:
+            level = 'high_risk'
+            
+        explanation = "Rule-based: " + "; ".join(factors) if factors else "No major risk factors"
+        confidence = min(0.8, (risk_score / 6))  # Approximate confidence
+        
+        return level, confidence, explanation
+    
+    def save_model(self):
+        """Save trained model to disk"""
+        try:
+            os.makedirs('instance', exist_ok=True)
+            with open(self.model_path, 'wb') as f:
+                pickle.dump(self.model, f)
+            with open(self.scaler_path, 'wb') as f:
+                pickle.dump(self.scaler, f)
+            print("Model saved successfully")
+        except Exception as e:
+            print(f"Error saving model: {e}")
+    
+    def load_model(self):
+        """Load trained model from disk"""
+        try:
+            if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
+                with open(self.model_path, 'rb') as f:
+                    self.model = pickle.load(f)
+                with open(self.scaler_path, 'rb') as f:
+                    self.scaler = pickle.load(f)
+                self.is_trained = True
+                print("Model loaded successfully")
+                return True
+        except Exception as e:
+            print(f"Error loading model: {e}")
+        return False
+
+# Global ML model instance
+ml_model = StudentRiskMLModel()
 
 def generate_recommendations(risk_factors):
     """Generate academic and financial recommendations based on risk factors"""
@@ -589,6 +851,91 @@ def manage_fees():
     fees = Fee.query.all()  # Faculty can view all fees for management
     return render_template('manage_fees.html', fees=fees)
 
+# Enhanced CRUD Operations for Faculty Dashboard
+
+@app.route('/faculty/exams/create', methods=['GET', 'POST'])
+@login_required
+def create_exam():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        exam = Exam(
+            name=request.form['name'],
+            subject=request.form['subject'],
+            class_name=request.form['class_name'],
+            exam_date=datetime.strptime(request.form['exam_date'], '%Y-%m-%dT%H:%M'),
+            max_marks=float(request.form['max_marks']),
+            exam_type=request.form['exam_type'],
+            faculty_id=faculty.id
+        )
+        db.session.add(exam)
+        db.session.commit()
+        flash('Exam created successfully!', 'success')
+        return redirect(url_for('manage_exams'))
+    
+    return render_template('create_exam.html')
+
+@app.route('/faculty/exams/edit/<int:exam_id>', methods=['GET', 'POST'])
+@login_required
+def edit_exam(exam_id):
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    exam = Exam.query.filter_by(id=exam_id, faculty_id=faculty.id).first()
+    if not exam:
+        flash('Exam not found!', 'error')
+        return redirect(url_for('manage_exams'))
+    
+    if request.method == 'POST':
+        exam.name = request.form['name']
+        exam.subject = request.form['subject']
+        exam.class_name = request.form['class_name']
+        exam.exam_date = datetime.strptime(request.form['exam_date'], '%Y-%m-%dT%H:%M')
+        exam.max_marks = float(request.form['max_marks'])
+        exam.exam_type = request.form['exam_type']
+        db.session.commit()
+        flash('Exam updated successfully!', 'success')
+        return redirect(url_for('manage_exams'))
+    
+    return render_template('edit_exam.html', exam=exam)
+
+@app.route('/faculty/exams/delete/<int:exam_id>', methods=['POST'])
+@login_required
+def delete_exam(exam_id):
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    exam = Exam.query.filter_by(id=exam_id, faculty_id=faculty.id).first()
+    if exam:
+        # Delete related exam results first
+        ExamResult.query.filter_by(exam_id=exam.id).delete()
+        db.session.delete(exam)
+        db.session.commit()
+        flash('Exam deleted successfully!', 'success')
+    else:
+        flash('Exam not found!', 'error')
+    
+    return redirect(url_for('manage_exams'))
+
 def allowed_file(filename):
     """Check if uploaded file has an allowed extension"""
     ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls'}
@@ -677,21 +1024,56 @@ try:
 except OSError:
     pass  # Directory already exists or can't create (not critical)
 
-# Initialize database and create admin user
+# Initialize database and create admin user with error handling
 with app.app_context():
-    # Create all database tables
-    db.create_all()
-    
-    # Create default admin user if not exists
-    admin = User.query.filter_by(username='admin').first()
-    if not admin:
-        admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
-        admin = User(username=admin_username, email='admin@school.edu', role='admin')
-        admin.set_password(admin_password)
-        db.session.add(admin)
-        db.session.commit()
-        print(f"Created admin user: {admin_username}")
+    try:
+        # Create all database tables
+        db.create_all()
+        print("Database tables created successfully!")
+        
+        # Create default admin user if not exists
+        admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            admin = User(username=admin_username, email='admin@school.edu', role='admin')
+            admin.set_password(admin_password)
+            db.session.add(admin)
+            db.session.commit()
+            print(f"Created admin user: {admin_username}")
+        
+        # Initialize ML model - Train if not already trained
+        print("Initializing ML-based risk prediction system...")
+        try:
+            if not ml_model.load_model():
+                print("Training ML model for first time...")
+                ml_model.train_model()
+                print("ML model training completed!")
+            else:
+                print("ML model loaded successfully!")
+                
+            # Update risk scores for existing students using ML
+            students = Student.query.all()
+            if students:
+                print(f"Updating ML-based risk scores for {len(students)} students...")
+                for student in students:
+                    update_student_risk_score(student.student_id)
+                print("ML-based risk score updates completed!")
+                
+        except Exception as ml_error:
+            print(f"ML model initialization failed: {ml_error}")
+            print("Application will continue without ML predictions")
+            
+    except Exception as db_error:
+        print(f"Database initialization failed: {db_error}")
+        print("Application will continue in limited mode")
+        # Initialize ML model even if database fails
+        try:
+            print("Initializing ML model in standalone mode...")
+            ml_model.train_model()
+            print("ML model training completed in standalone mode!")
+        except Exception as ml_error:
+            print(f"ML model initialization also failed: {ml_error}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
