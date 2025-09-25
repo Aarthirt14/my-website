@@ -4,7 +4,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales"]
+packages = ["glibcLocales", "openssl", "postgresql"]
 
 [workflows]
 runButton = "Project"
@@ -37,3 +37,7 @@ externalPort = 80
 [[ports]]
 localPort = 33405
 externalPort = 3000
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
