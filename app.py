@@ -32,7 +32,8 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Initialize extensions
-db = SQLAlchemy(app)
+db = SQLAlchemy()
+db.init_app(app) 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -732,13 +733,18 @@ def faculty_dashboard():
     # Get recent risk assessments
     recent_assessments = RiskAssessment.query.order_by(RiskAssessment.assessment_date.desc()).limit(10).all()
     
+    # --- Fetch assignments too ---
+    assignments = Assignment.query.order_by(Assignment.due_date.desc()).all()
+    
     return render_template('faculty_dashboard.html', 
                          students=students,
                          total_students=total_students,
                          safe_count=safe_count,
                          warning_count=warning_count,
                          high_risk_count=high_risk_count,
-                         recent_assessments=recent_assessments)
+                         recent_assessments=recent_assessments,
+                         assignments=assignments)  # pass to template
+
 
 @app.route('/student/dashboard')
 @login_required
@@ -754,20 +760,25 @@ def student_dashboard():
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload_data():
-    if current_user.role != 'admin':
+    if current_user.role.lower() not in ['admin', 'faculty']:
         flash('Access denied!', 'error')
         return redirect(url_for('index'))
-    
+
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file selected!', 'error')
             return redirect(request.url)
         
         file = request.files['file']
-        data_type = request.form['data_type']
+        data_type = request.form.get('data_type')
+        action = request.form.get('action')  # 'replace' or 'update'
         
         if not file.filename:
             flash('No file selected!', 'error')
+            return redirect(request.url)
+        
+        if not action:
+            flash('Please select an action (replace or update)!', 'error')
             return redirect(request.url)
         
         if file and file.filename and allowed_file(file.filename):
@@ -775,17 +786,16 @@ def upload_data():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(filepath)
             
-            # Process the uploaded file
             try:
                 if data_type == 'students':
-                    process_student_data(filepath)
+                    process_student_data(filepath, action)
                 elif data_type == 'attendance':
-                    process_attendance_data(filepath)
+                    process_attendance_data(filepath, action)
                 elif data_type == 'test_scores':
-                    process_test_scores_data(filepath)
+                    process_test_scores_data(filepath, action)
                 
-                flash('File uploaded and processed successfully!', 'success')
-                os.remove(filepath)  # Clean up uploaded file
+                flash(f'File uploaded and {action}d successfully!', 'success')
+                os.remove(filepath)  # Clean up
             except Exception as e:
                 flash(f'Error processing file: {str(e)}', 'error')
                 if os.path.exists(filepath):
@@ -794,6 +804,7 @@ def upload_data():
             flash('Invalid file format. Please upload CSV or Excel files.', 'error')
     
     return render_template('upload.html')
+
 
 # Faculty Management Routes
 @app.route('/faculty/timetable')
@@ -823,7 +834,8 @@ def manage_assignments():
         flash('Faculty profile not found!', 'error')
         return redirect(url_for('index'))
     
-    assignments = Assignment.query.filter_by(faculty_id=faculty.id).all()
+    assignments = Assignment.query.filter_by(faculty_id=faculty.id)\
+                                  .order_by(Assignment.created_at.desc()).all()
     return render_template('manage_assignments.html', assignments=assignments)
 
 @app.route('/faculty/exams')
@@ -841,6 +853,7 @@ def manage_exams():
     exams = Exam.query.filter_by(faculty_id=faculty.id).all()
     return render_template('manage_exams.html', exams=exams)
 
+
 @app.route('/faculty/fees')
 @login_required
 def manage_fees():
@@ -850,6 +863,43 @@ def manage_fees():
         
     fees = Fee.query.all()  # Faculty can view all fees for management
     return render_template('manage_fees.html', fees=fees)
+
+@app.route('/faculty/assignments/create', methods=['GET', 'POST'])
+@login_required
+def create_assignment():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        # Optional: handle file upload if needed
+        file = request.files.get('file')
+        filename = None
+        if file:
+            filename = f"uploads/{file.filename}"
+            file.save(f"static/{filename}")
+        
+        assignment = Assignment(
+            title=request.form['title'],
+            description=request.form.get('description', ''),
+            subject=request.form['subject'],
+            class_name=request.form['class_name'],
+            due_date=datetime.strptime(request.form['due_date'], '%Y-%m-%dT%H:%M'),
+            max_marks=float(request.form.get('max_marks', 100)),
+            faculty_id=faculty.id,
+            file_path=filename
+        )
+        db.session.add(assignment)
+        db.session.commit()
+        flash('Assignment created successfully!', 'success')
+        return redirect(url_for('manage_assignments'))
+    
+    return render_template('create_assignment.html')
 
 # Enhanced CRUD Operations for Faculty Dashboard
 
@@ -912,6 +962,8 @@ def edit_exam(exam_id):
     
     return render_template('edit_exam.html', exam=exam)
 
+
+
 @app.route('/faculty/exams/delete/<int:exam_id>', methods=['POST'])
 @login_required
 def delete_exam(exam_id):
@@ -942,28 +994,53 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def process_student_data(filepath):
-    """Process uploaded student data file"""
-    if filepath.endswith('.csv'):
-        df = pd.read_csv(filepath)
-    else:
-        df = pd.read_excel(filepath)
-    
-    for _, row in df.iterrows():
-        student = Student.query.filter_by(student_id=str(row['student_id'])).first()
-        if not student:
-            student = Student(
-                student_id=str(row['student_id']),
-                name=row['name'],
-                class_name=row['class'],
-                email=row.get('email', ''),
-                phone=row.get('phone', ''),
-                guardian_email=row.get('guardian_email', ''),
-                guardian_phone=row.get('guardian_phone', '')
-            )
-            db.session.add(student)
-    
-    db.session.commit()
+def process_student_data(filepath, action='update'):
+    """Process uploaded student data file with replace/update option"""
+    import pandas as pd
+    from app import app, db, Student  # make sure to import the Flask app too
+
+    # Use app context so SQLAlchemy knows which app to use
+    with app.app_context():
+        # Load CSV or Excel
+        if filepath.endswith('.csv'):
+            df = pd.read_csv(filepath)
+        else:
+            df = pd.read_excel(filepath)
+
+        if action == 'replace':
+            # Delete all existing student records
+            Student.query.delete()
+            db.session.commit()
+
+        for _, row in df.iterrows():
+            student_id = str(row['student_id'])
+            student = Student.query.filter_by(student_id=student_id).first()
+
+            if student:
+                if action == 'update':
+                    # Update existing student fields
+                    student.name = row['name']
+                    student.class_name = row['class']
+                    student.email = row.get('email', student.email)
+                    student.phone = row.get('phone', student.phone)
+                    student.guardian_email = row.get('guardian_email', student.guardian_email)
+                    student.guardian_phone = row.get('guardian_phone', student.guardian_phone)
+            else:
+                # Add new student
+                new_student = Student(
+                    student_id=student_id,
+                    name=row['name'],
+                    class_name=row['class'],
+                    email=row.get('email', ''),
+                    phone=row.get('phone', ''),
+                    guardian_email=row.get('guardian_email', ''),
+                    guardian_phone=row.get('guardian_phone', '')
+                )
+                db.session.add(new_student)
+
+        db.session.commit()
+
+
 
 def process_attendance_data(filepath):
     """Process uploaded attendance data file"""

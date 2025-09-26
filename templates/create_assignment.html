@@ -1,1 +1,39 @@
-{% extends "base.html" %}\n\n{% block content %}\n<div class="container mt-4">\n    <h2>Create New Assignment</h2>\n    \n    <form method="POST">\n        <div class="mb-3">\n            <label for="title" class="form-label">Assignment Title</label>\n            <input type="text" class="form-control" id="title" name="title" required>\n        </div>\n        \n        <div class="mb-3">\n            <label for="description" class="form-label">Description</label>\n            <textarea class="form-control" id="description" name="description" rows="3"></textarea>\n        </div>\n        \n        <div class="mb-3">\n            <label for="subject" class="form-label">Subject</label>\n            <input type="text" class="form-control" id="subject" name="subject" required>\n        </div>\n        \n        <div class="mb-3">\n            <label for="class_name" class="form-label">Class</label>\n            <input type="text" class="form-control" id="class_name" name="class_name" required>\n        </div>\n        \n        <div class="mb-3">\n            <label for="due_date" class="form-label">Due Date & Time</label>\n            <input type="datetime-local" class="form-control" id="due_date" name="due_date" required>\n        </div>\n        \n        <div class="mb-3">\n            <label for="max_marks" class="form-label">Maximum Marks</label>\n            <input type="number" step="0.01" class="form-control" id="max_marks" name="max_marks" required>\n        </div>\n        \n        <button type="submit" class="btn btn-primary">Create Assignment</button>\n        <a href="{{ url_for('manage_assignments') }}" class="btn btn-secondary">Cancel</a>\n    </form>\n</div>\n{% endblock %}
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create New Assignment</h2>
+    <form method="POST" action="{{ url_for('create_assignment') }}" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="title" class="form-label">Assignment Title</label>
+            <input type="text" class="form-control" id="title" name="title" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input type="text" class="form-control" id="subject" name="subject" required>
+        </div>
+        <div class="mb-3">
+            <label for="class_name" class="form-label">Class</label>
+            <input type="text" class="form-control" id="class_name" name="class_name" required>
+        </div>
+        <div class="mb-3">
+            <label for="due_date" class="form-label">Due Date & Time</label>
+            <input type="datetime-local" class="form-control" id="due_date" name="due_date" required>
+        </div>
+        <div class="mb-3">
+            <label for="max_marks" class="form-label">Maximum Marks</label>
+            <input type="number" step="0.01" class="form-control" id="max_marks" name="max_marks" required>
+        </div>
+        <div class="mb-3">
+            <label for="file" class="form-label">Upload File (optional)</label>
+            <input type="file" class="form-control" id="file" name="file">
+        </div>
+        <button type="submit" class="btn btn-primary">Create Assignment</button>
+        <a href="{{ url_for('faculty_dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

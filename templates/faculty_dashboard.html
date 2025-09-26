@@ -3,6 +3,7 @@
 {% block title %}Faculty Dashboard - Academic Portal{% endblock %}
 
 {% block content %}
+<!-- Page Header -->
 <div class="row">
     <div class="col-12">
         <h2 class="mb-4">
@@ -11,6 +12,83 @@
         </h2>
     </div>
 </div>
+
+<!-- Upload Data Card -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5>Upload Data</h5></div>
+      <div class="card-body">
+        <form id="uploadForm" action="{{ url_for('upload_data') }}" method="POST" enctype="multipart/form-data">
+          <!-- File input -->
+          <div class="mb-3">
+            <label for="file" class="form-label">Select CSV/Excel file</label>
+            <input type="file" class="form-control" name="file" id="file" required>
+          </div>
+
+          <!-- Data type selection -->
+          <div class="mb-3">
+            <label for="data_type" class="form-label">Data Type</label>
+            <select class="form-select" name="data_type" id="data_type" required>
+              <option value="students">Students</option>
+              <option value="attendance">Attendance</option>
+              <option value="test_scores">Test Scores</option>
+            </select>
+          </div>
+
+          <!-- Action selection -->
+<div class="mb-3">
+    <label class="form-label fw-bold">Choose Action:</label>
+    <div class="form-check">
+        <input class="form-check-input" type="radio" name="action" id="replace" value="replace" required>
+        <label class="form-check-label" for="replace">Replace Existing Data</label>
+    </div>
+    <div class="form-check">
+        <input class="form-check-input" type="radio" name="action" id="update" value="update" required>
+        <label class="form-check-label" for="update">Update Existing Data</label>
+    </div>
+</div>
+<div id="actionAlert"></div>
+
+
+          <!-- Submit button -->
+          <button type="submit" class="btn btn-primary">Upload</button>
+        </form>
+
+        <!-- Flash messages -->
+        <div id="actionAlert"></div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ 'danger' if category=='error' else category }} alert-dismissible fade show mt-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(event) {
+    const actionSelected = document.querySelector('input[name="action"]:checked');
+    const alertDiv = document.getElementById('actionAlert');
+
+    if (!actionSelected) {
+        event.preventDefault(); // stop form submission
+        alertDiv.innerHTML = `
+          <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+            Please select an action (replace or update)!
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>`;
+        return false;
+    }
+});
+</script>
+
 
 <!-- Enhanced Statistics Cards -->
 <div class="row mb-4">
@@ -143,20 +221,6 @@
                     </div>
                     <div class="col-md-2">
                         <div class="d-grid">
-                            <button class="btn btn-outline-info" onclick="location.href='{{ url_for('edit_student_marks') }}'">
-                                <i class="fas fa-clipboard-list me-2"></i>Enter Marks
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="d-grid">
-                            <button class="btn btn-outline-warning" onclick="location.href='{{ url_for('manage_fees') }}'">
-                                <i class="fas fa-money-bill me-2"></i>Manage Fees
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="d-grid">
                             <button class="btn btn-outline-secondary" onclick="location.href='#'">
                                 <i class="fas fa-envelope me-2"></i>Send Email
                             </button>
@@ -170,6 +234,55 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Assignments Table -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-tasks me-2"></i>Assignments</h5>
+                <a href="{{ url_for('create_assignment') }}" class="btn btn-primary btn-sm">Add Assignment</a>
+            </div>
+            <div class="card-body">
+                {% if assignments %}
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Due Date</th>
+                            <th>Max Marks</th>
+                            <th>File</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>{{ assignment.title }}</td>
+                            <td>{{ assignment.subject }}</td>
+                            <td>{{ assignment.class_name }}</td>
+                            <td>{{ assignment.due_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ assignment.max_marks }}</td>
+                            <td>
+                                {% if assignment.file_path %}
+                                <a href="{{ url_for('static', filename=assignment.file_path) }}" target="_blank">Download</a>
+                                {% else %}None{% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('edit_assignment', id=assignment.id) }}" class="btn btn-sm btn-warning">Edit</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>No assignments found. Click "Add Assignment" to create one.</p>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -334,6 +447,7 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -347,11 +461,7 @@ document.querySelectorAll('input[name="riskFilter"]').forEach(radio => {
         
         rows.forEach(row => {
             const riskLevel = row.getAttribute('data-risk');
-            if (filterValue === 'all' || riskLevel === filterValue) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            row.style.display = (filterValue === 'all' || riskLevel === filterValue) ? '' : 'none';
         });
     });
 });
@@ -372,15 +482,11 @@ new Chart(ctx1, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
+        plugins: { legend: { position: 'bottom' } }
     }
 });
 
-// Risk Factors Bar Chart (sample data - will be dynamic with real data)
+// Risk Factors Bar Chart (sample data)
 const ctx2 = document.getElementById('factorsBarChart').getContext('2d');
 new Chart(ctx2, {
     type: 'bar',
@@ -388,7 +494,7 @@ new Chart(ctx2, {
         labels: ['Attendance <70%', 'Missing Assignments', 'Low Internal Marks', 'Fee Issues'],
         datasets: [{
             label: 'Students Affected',
-            data: [5, 8, 3, 12], // Sample data
+            data: [5, 8, 3, 12],
             backgroundColor: ['#17a2b8', '#6c757d', '#fd7e14', '#dc3545'],
             borderColor: ['#138496', '#495057', '#fd7e14', '#dc3545'],
             borderWidth: 1
@@ -397,20 +503,8 @@ new Chart(ctx2, {
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                title: {
-                    display: true,
-                    text: 'Number of Students'
-                }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            }
-        }
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Number of Students' } } },
+        plugins: { legend: { display: false } }
     }
 });
 
@@ -427,7 +521,7 @@ function scheduleMeeting(studentId) {
     alert('Schedule meeting with student: ' + studentId + '\n(Feature will be implemented)');
 }
 
-// Show recent alerts modal button (can be added to header)
+// Show recent alerts modal
 function showAlertsModal() {
     new bootstrap.Modal(document.getElementById('alertsModal')).show();
 }
