@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Report - Faculty Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-file-pdf text-primary me-2"></i>
+            Academic Performance Report
+        </h2>
+    </div>
+</div>
+
+<!-- Report Summary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Executive Summary
+                </h5>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="window.print()">
+                        <i class="fas fa-print me-2"></i>Print Report
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="exportToCSV()">
+                        <i class="fas fa-download me-2"></i>Export CSV
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <h3>{{ total_students }}</h3>
+                                <p class="mb-0">Total Students</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <h3>{{ safe_count }}</h3>
+                                <p class="mb-0">Safe ({{ ((safe_count/total_students*100) if total_students > 0 else 0)|round(1) }}%)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <h3>{{ warning_count }}</h3>
+                                <p class="mb-0">Warning ({{ ((warning_count/total_students*100) if total_students > 0 else 0)|round(1) }}%)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white">
+                            <div class="card-body">
+                                <h3>{{ high_risk_count }}</h3>
+                                <p class="mb-0">High Risk ({{ ((high_risk_count/total_students*100) if total_students > 0 else 0)|round(1) }}%)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-lightbulb me-2"></i>Key Insights</h6>
+                        <ul>
+                            {% if high_risk_count > 0 %}
+                            <li class="text-danger">{{ high_risk_count }} students require immediate intervention</li>
+                            {% endif %}
+                            {% if warning_count > 0 %}
+                            <li class="text-warning">{{ warning_count }} students need close monitoring</li>
+                            {% endif %}
+                            {% if safe_count == total_students %}
+                            <li class="text-success">All students are performing well!</li>
+                            {% else %}
+                            <li class="text-info">{{ safe_count }} students are performing satisfactorily</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-tasks me-2"></i>Recommended Actions</h6>
+                        <ul>
+                            {% if high_risk_count > 0 %}
+                            <li>Schedule immediate counseling sessions for high-risk students</li>
+                            <li>Contact guardians of at-risk students</li>
+                            {% endif %}
+                            {% if warning_count > 0 %}
+                            <li>Implement weekly check-ins for warning-level students</li>
+                            {% endif %}
+                            <li>Continue monitoring all students regularly</li>
+                            <li>Update risk assessments weekly</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Student Report -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Detailed Student Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="studentReportTable">
+                        <thead>
+                            <tr>
+                                <th>Student ID</th>
+                                <th>Name</th>
+                                <th>Class</th>
+                                <th>Risk Level</th>
+                                <th>Risk Score</th>
+                                <th>Attendance %</th>
+                                <th>Missing Assignments</th>
+                                <th>Internal Marks %</th>
+                                <th>Recommendations</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            <tr class="{% if student.current_risk_level == 'high_risk' %}table-danger{% elif student.current_risk_level == 'warning' %}table-warning{% else %}table-success{% endif %}">
+                                <td>{{ student.student_id }}</td>
+                                <td>{{ student.name }}</td>
+                                <td>{{ student.class_name }}</td>
+                                <td>
+                                    <span class="badge bg-{% if student.current_risk_level == 'safe' %}success{% elif student.current_risk_level == 'warning' %}warning{% else %}danger{% endif %}">
+                                        {{ student.current_risk_level.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td>{{ student.risk_score or 0 }}/5</td>
+                                <td>N/A</td>
+                                <td>N/A</td>
+                                <td>N/A</td>
+                                <td>
+                                    <small>
+                                        {% if student.current_risk_level == 'safe' %}
+                                            Continue monitoring
+                                        {% elif student.current_risk_level == 'warning' %}
+                                            Schedule check-in, provide support
+                                        {% else %}
+                                            Immediate intervention required
+                                        {% endif %}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Footer -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <p class="mb-1"><strong>Report Generated:</strong> {{ moment().format('MMMM Do YYYY, h:mm:ss a') }}</p>
+                <p class="mb-0"><strong>Generated By:</strong> {{ current_user.username }} (Faculty)</p>
+                <hr>
+                <small class="text-muted">
+                    This report is generated by the AI-based Drop-out Prediction and Counseling System.<br>
+                    For questions or concerns, please contact the academic administration.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{{ url_for('faculty_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportToCSV() {
+    const table = document.getElementById('studentReportTable');
+    const rows = table.querySelectorAll('tr');
+    let csv = [];
+    
+    // Get headers
+    const headers = [];
+    rows[0].querySelectorAll('th').forEach(th => {
+        headers.push(th.textContent.trim());
+    });
+    csv.push(headers.join(','));
+    
+    // Get data rows
+    for (let i = 1; i < rows.length; i++) {
+        const row = [];
+        rows[i].querySelectorAll('td').forEach(td => {
+            // Clean up the text content
+            let text = td.textContent.trim();
+            // Remove extra whitespace and newlines
+            text = text.replace(/\s+/g, ' ');
+            // Escape commas and quotes
+            if (text.includes(',') || text.includes('"')) {
+                text = '"' + text.replace(/"/g, '""') + '"';
+            }
+            row.push(text);
+        });
+        csv.push(row.join(','));
+    }
+    
+    // Create and download file
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_report_' + new Date().toISOString().split('T')[0] + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Print styles
+const printStyles = `
+    @media print {
+        .btn, .card-header .btn-group { display: none !important; }
+        .card { border: 1px solid #000 !important; }
+        .table { font-size: 12px; }
+        .badge { border: 1px solid #000; }
+    }
+`;
+
+// Add print styles to head
+const style = document.createElement('style');
+style.textContent = printStyles;
+document.head.appendChild(style);
+</script>
+{% endblock %}

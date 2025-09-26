@@ -207,7 +207,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(event)
                 <div class="row">
                     <div class="col-md-2">
                         <div class="d-grid">
-                            <button class="btn btn-outline-primary" onclick="location.href='#'">
+                            <button class="btn btn-outline-primary" onclick="location.href='{{ url_for('manage_timetable') }}'">
                                 <i class="fas fa-calendar me-2"></i>Manage Timetable
                             </button>
                         </div>
@@ -221,14 +221,14 @@ document.getElementById('uploadForm').addEventListener('submit', function(event)
                     </div>
                     <div class="col-md-2">
                         <div class="d-grid">
-                            <button class="btn btn-outline-secondary" onclick="location.href='#'">
+                            <button class="btn btn-outline-secondary" onclick="location.href='{{ url_for('send_email') }}'">
                                 <i class="fas fa-envelope me-2"></i>Send Email
                             </button>
                         </div>
                     </div>
                     <div class="col-md-2">
                         <div class="d-grid">
-                            <button class="btn btn-outline-dark" onclick="window.print()">
+                            <button class="btn btn-outline-dark" onclick="location.href='{{ url_for('generate_report') }}'">
                                 <i class="fas fa-file-pdf me-2"></i>Generate Report
                             </button>
                         </div>
@@ -384,13 +384,13 @@ document.getElementById('uploadForm').addEventListener('submit', function(event)
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <button class="btn btn-outline-info" title="View Details" onclick="viewStudentDetails('{{ student.student_id }}')">
+                                            <button class="btn btn-outline-info" title="View Details" onclick="viewStudentDetails('{{ student.student_id }}', '{{ student.name }}')">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="btn btn-outline-primary" title="Send Message" onclick="sendMessage('{{ student.student_id }}')">
+                                            <button class="btn btn-outline-primary" title="Send Message" onclick="sendMessage('{{ student.student_id }}', '{{ student.name }}')">
                                                 <i class="fas fa-comment"></i>
                                             </button>
-                                            <button class="btn btn-outline-warning" title="Schedule Meeting" onclick="scheduleMeeting('{{ student.student_id }}')">
+                                            <button class="btn btn-outline-warning" title="Schedule Meeting" onclick="scheduleMeeting('{{ student.student_id }}', '{{ student.name }}')">
                                                 <i class="fas fa-calendar-plus"></i>
                                             </button>
                                         </div>
@@ -410,6 +410,27 @@ document.getElementById('uploadForm').addEventListener('submit', function(event)
                         </a>
                     </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Details Modal -->
+<div class="modal fade" id="studentDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>Student Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="studentDetailsContent">
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -512,16 +533,101 @@ new Chart(ctx2, {
 });
 
 // Student action functions
-function viewStudentDetails(studentId) {
-    alert('View details for student: ' + studentId + '\n(Feature will be implemented)');
+function viewStudentDetails(studentId, studentName) {
+    const modal = new bootstrap.Modal(document.getElementById('studentDetailsModal'));
+    const content = document.getElementById('studentDetailsContent');
+    
+    // Show loading
+    content.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading ${studentName}'s details...</p>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch student details
+    fetch(`/api/student/${studentId}`)
+        .then(response => response.json())
+        .then(data => {
+            content.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-user me-2"></i>Basic Information</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Student ID:</strong></td><td>${data.student.student_id}</td></tr>
+                            <tr><td><strong>Name:</strong></td><td>${data.student.name}</td></tr>
+                            <tr><td><strong>Class:</strong></td><td>${data.student.class_name}</td></tr>
+                            <tr><td><strong>Email:</strong></td><td>${data.student.email || 'N/A'}</td></tr>
+                            <tr><td><strong>Phone:</strong></td><td>${data.student.phone || 'N/A'}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-bar me-2"></i>Academic Metrics</h6>
+                        <table class="table table-sm">
+                            <tr><td><strong>Risk Level:</strong></td><td><span class="badge bg-${data.student.risk_level === 'safe' ? 'success' : data.student.risk_level === 'warning' ? 'warning' : 'danger'}">${data.student.risk_level}</span></td></tr>
+                            <tr><td><strong>Risk Score:</strong></td><td>${data.student.risk_score}/5</td></tr>
+                            <tr><td><strong>Attendance:</strong></td><td>${data.metrics.attendance_percentage.toFixed(1)}%</td></tr>
+                            <tr><td><strong>Missing Assignments:</strong></td><td>${data.metrics.missing_assignments}</td></tr>
+                            <tr><td><strong>Internal Marks:</strong></td><td>${data.metrics.internal_marks.toFixed(1)}%</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-clipboard-list me-2"></i>Recent Test Scores</h6>
+                        ${data.recent_tests.length > 0 ? 
+                            data.recent_tests.map(test => 
+                                `<div class="d-flex justify-content-between border-bottom py-1">
+                                    <small>${test.subject}</small>
+                                    <small><strong>${((test.score/test.max_score)*100).toFixed(1)}%</strong></small>
+                                </div>`
+                            ).join('') : 
+                            '<p class="text-muted">No recent test data</p>'
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-calendar-check me-2"></i>Recent Attendance</h6>
+                        ${data.recent_attendance.length > 0 ? 
+                            data.recent_attendance.slice(0, 5).map(att => 
+                                `<div class="d-flex justify-content-between border-bottom py-1">
+                                    <small>${att.date}</small>
+                                    <small><span class="badge bg-${att.status === 'present' ? 'success' : att.status === 'late' ? 'warning' : 'danger'}">${att.status}</span></small>
+                                </div>`
+                            ).join('') : 
+                            '<p class="text-muted">No recent attendance data</p>'
+                        }
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading student details. Please try again.
+                </div>
+            `;
+        });
 }
 
-function sendMessage(studentId) {
-    alert('Send message to student: ' + studentId + '\n(Feature will be implemented)');
+function sendMessage(studentId, studentName) {
+    const message = prompt(`Send message to ${studentName} (${studentId}):`);
+    if (message) {
+        alert(`Message sent to ${studentName}: "${message}"\n\n(In a real system, this would send an email/SMS)`);
+    }
 }
 
-function scheduleMeeting(studentId) {
-    alert('Schedule meeting with student: ' + studentId + '\n(Feature will be implemented)');
+function scheduleMeeting(studentId, studentName) {
+    const date = prompt(`Schedule meeting with ${studentName} (${studentId})\nEnter date and time (e.g., "Tomorrow 2 PM"):`);
+    if (date) {
+        alert(`Meeting scheduled with ${studentName} for ${date}\n\n(In a real system, this would create a calendar event)`);
+    }
 }
 
 // Show recent alerts modal

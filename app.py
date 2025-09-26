@@ -17,6 +17,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report, accuracy_score
 import warnings
 warnings.filterwarnings('ignore')
+import random
+import re
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -624,14 +626,41 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username).first()
         
-        if user and user.check_password(password):
-            login_user(user)
-            flash('Login successful!', 'success')
-            return redirect(url_for('index'))
+        # Check if username looks like a student ID (e.g., 24uam101)
+        if re.match(r'^\d{2}[a-zA-Z]{3,4}\d{3}$', username.lower()):
+            # Student login with student_id
+            student = Student.query.filter_by(student_id=username.lower()).first()
+            if student:
+                # Create or get user account for student
+                user = User.query.filter_by(username=username.lower()).first()
+                if not user:
+                    user = User(
+                        username=username.lower(),
+                        email=student.email or f"{username.lower()}@student.edu",
+                        role='student'
+                    )
+                    user.set_password(password)  # Set the password they provided
+                    db.session.add(user)
+                    db.session.commit()
+                elif user.check_password(password):
+                    login_user(user)
+                    flash('Student login successful!', 'success')
+                    return redirect(url_for('student_dashboard'))
+                else:
+                    flash('Invalid password for student ID!', 'error')
+            else:
+                flash('Student ID not found! Please contact administration.', 'error')
         else:
-            flash('Invalid username or password!', 'error')
+            # Regular user login
+            user = User.query.filter_by(username=username).first()
+            
+            if user and user.check_password(password):
+                login_user(user)
+                flash('Login successful!', 'success')
+                return redirect(url_for('index'))
+            else:
+                flash('Invalid username or password!', 'error')
     
     return render_template('login.html')
 
@@ -745,13 +774,43 @@ def faculty_dashboard():
 @app.route('/student/dashboard')
 @login_required
 def student_dashboard():
-    if current_user.role != 'student':
-        flash('Access denied!', 'error')
-        return redirect(url_for('index'))
+    # Allow both student role and student_id login
+    student = None
+    if current_user.role == 'student':
+        # Try to find student by username (student_id)
+        student = Student.query.filter_by(student_id=current_user.username).first()
+    elif hasattr(current_user, 'student_id'):
+        student = Student.query.filter_by(student_id=current_user.student_id).first()
     
-    # For now, show a simple student dashboard
-    # In a real implementation, you'd link User to Student via student_id
-    return render_template('student_dashboard.html')
+    if not student:
+        # Create a basic student record if not found
+        student = Student(
+            student_id=current_user.username,
+            name=current_user.username.upper(),
+            class_name='AIML',
+            email=current_user.email
+        )
+        db.session.add(student)
+        db.session.commit()
+    
+    # Get student's academic data
+    attendance_percentage = calculate_attendance_percentage(student.student_id)
+    missing_assignments = count_missing_assignments(student.student_id)
+    internal_marks = calculate_internal_marks_percentage(student.student_id)
+    
+    # Get recent activities
+    recent_tests = TestScore.query.filter_by(student_id=student.student_id)\
+                                 .order_by(TestScore.test_date.desc()).limit(5).all()
+    recent_attendance = AttendanceRecord.query.filter_by(student_id=student.student_id)\
+                                             .order_by(AttendanceRecord.date.desc()).limit(5).all()
+    
+    return render_template('student_dashboard.html', 
+                         student=student,
+                         attendance_percentage=attendance_percentage,
+                         missing_assignments=missing_assignments,
+                         internal_marks=internal_marks,
+                         recent_tests=recent_tests,
+                         recent_attendance=recent_attendance)
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -983,6 +1042,196 @@ def delete_exam(exam_id):
         flash('Exam not found!', 'error')
     
     return redirect(url_for('manage_exams'))
+# AI Chatbot Routes
+@app.route('/api/chat', methods=['POST'])
+@login_required
+def chat_api():
+    """AI Chatbot API endpoint"""
+    data = request.get_json()
+    user_message = data.get('message', '').strip()
+    
+    if not user_message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    # Get student data for personalized responses
+    student = None
+    if current_user.role == 'student':
+        student = Student.query.filter_by(student_id=current_user.username).first()
+    
+    # Generate AI response
+    bot_response = generate_ai_response(user_message, student)
+    
+    return jsonify({
+        'response': bot_response,
+        'timestamp': datetime.now().isoformat()
+    })
+
+def generate_ai_response(message, student=None):
+    """Generate AI counselor response based on user message and student data"""
+    message_lower = message.lower()
+    
+    # Personalized responses based on student data
+    if student:
+        attendance = calculate_attendance_percentage(student.student_id)
+        missing_assignments = count_missing_assignments(student.student_id)
+        internal_marks = calculate_internal_marks_percentage(student.student_id)
+        
+        # Attendance-related queries
+        if any(word in message_lower for word in ['attendance', 'absent', 'present', 'class']):
+            if attendance < 70:
+                return f"I see your attendance is at {attendance:.1f}%, which is below the recommended 75%. Here are some tips to improve: 1) Set daily reminders for classes, 2) Find a study buddy for accountability, 3) Talk to your professors about any challenges you're facing. Would you like specific strategies for better time management?"
+            else:
+                return f"Great job! Your attendance is at {attendance:.1f}%. Keep maintaining this consistency. Regular attendance is key to academic success."
+        
+        # Assignment-related queries
+        if any(word in message_lower for word in ['assignment', 'homework', 'submit', 'deadline']):
+            if missing_assignments > 0:
+                return f"I notice you have {missing_assignments} pending assignments. Let's create a plan: 1) List all pending work with deadlines, 2) Break large tasks into smaller chunks, 3) Set daily goals, 4) Reward yourself for completing tasks. Need help prioritizing your assignments?"
+            else:
+                return "Excellent! You're up to date with your assignments. This shows great time management skills. Keep this momentum going!"
+        
+        # Grades/marks related queries
+        if any(word in message_lower for word in ['marks', 'grades', 'score', 'test', 'exam']):
+            if internal_marks < 60:
+                return f"Your current average is {internal_marks:.1f}%. Let's work on improvement strategies: 1) Review your study methods, 2) Form study groups, 3) Seek help from professors during office hours, 4) Practice active recall techniques. What subject would you like to focus on first?"
+            else:
+                return f"You're doing well with an average of {internal_marks:.1f}%! To maintain or improve further: 1) Continue your current study routine, 2) Challenge yourself with advanced problems, 3) Help classmates to reinforce your learning."
+    
+    # General motivational and study-related responses
+    responses = {
+        'stress': [
+            "It's normal to feel stressed sometimes. Try these techniques: 1) Deep breathing exercises, 2) Take short breaks every hour, 3) Talk to friends or counselors, 4) Maintain a regular sleep schedule. Remember, you're not alone in this journey!",
+            "Stress can be overwhelming, but you can manage it! Consider: 1) Breaking tasks into smaller parts, 2) Practicing mindfulness, 3) Regular exercise, 4) Proper time management. Would you like specific stress-relief techniques?"
+        ],
+        'motivation': [
+            "Remember why you started this journey! Every small step counts. Set small, achievable goals and celebrate your progress. You have the potential to succeed!",
+            "Motivation comes and goes, but discipline stays. Create a routine, stick to it, and trust the process. Your future self will thank you for the effort you put in today!"
+        ],
+        'study': [
+            "Effective studying is about quality, not just quantity. Try: 1) Active recall instead of just re-reading, 2) Spaced repetition, 3) Teaching concepts to others, 4) Taking regular breaks. What subject are you focusing on?",
+            "Great study habits include: 1) Creating a distraction-free environment, 2) Using the Pomodoro technique, 3) Making summary notes, 4) Regular self-testing. Need help with any specific topic?"
+        ],
+        'career': [
+            "Your career path is unique to you! Consider: 1) Your interests and strengths, 2) Industry trends, 3) Networking opportunities, 4) Continuous learning. What field interests you most?",
+            "Career planning is exciting! Start by: 1) Exploring different options, 2) Talking to professionals in your field of interest, 3) Building relevant skills, 4) Gaining practical experience through internships."
+        ],
+        'help': [
+            "I'm here to help! I can assist with: 1) Study strategies, 2) Time management, 3) Stress management, 4) Academic planning, 5) Motivation and goal setting. What would you like to discuss?",
+            "You can ask me about: 1) Improving attendance, 2) Assignment management, 3) Study techniques, 4) Career guidance, 5) Dealing with academic stress. How can I support you today?"
+        ]
+    }
+    
+    # Match user message to response categories
+    for category, category_responses in responses.items():
+        if category in message_lower:
+            return random.choice(category_responses)
+    
+    # Default responses for unmatched queries
+    default_responses = [
+        "That's an interesting question! While I focus on academic counseling, I'd suggest discussing this with your professors or academic advisors for more detailed guidance.",
+        "I understand your concern. For academic success, focus on consistent attendance, timely assignment submission, and active participation in class. Is there a specific academic challenge you'd like help with?",
+        "Every student's journey is unique. What matters most is your commitment to learning and growth. How can I help you with your academic goals today?",
+        "I'm here to support your academic journey! Whether it's study strategies, time management, or motivation, I'm ready to help. What's on your mind?"
+    ]
+    
+    return random.choice(default_responses)
+
+# Quick Actions Routes
+@app.route('/faculty/manage_timetable')
+@login_required
+def manage_timetable():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    timetable = Timetable.query.filter_by(faculty_id=faculty.id).all()
+    return render_template('manage_timetable.html', timetable=timetable, faculty=faculty)
+
+@app.route('/faculty/send_email')
+@login_required
+def send_email():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    # Get high-risk students for email alerts
+    high_risk_students = Student.query.filter_by(current_risk_level='high_risk').all()
+    warning_students = Student.query.filter_by(current_risk_level='warning').all()
+    
+    return render_template('send_email.html', 
+                         high_risk_students=high_risk_students,
+                         warning_students=warning_students)
+
+@app.route('/faculty/generate_report')
+@login_required
+def generate_report():
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    # Generate comprehensive report data
+    total_students = Student.query.count()
+    safe_count = Student.query.filter_by(current_risk_level='safe').count()
+    warning_count = Student.query.filter_by(current_risk_level='warning').count()
+    high_risk_count = Student.query.filter_by(current_risk_level='high_risk').count()
+    
+    # Get detailed student data
+    students = Student.query.all()
+    
+    return render_template('generate_report.html',
+                         total_students=total_students,
+                         safe_count=safe_count,
+                         warning_count=warning_count,
+                         high_risk_count=high_risk_count,
+                         students=students)
+
+# Student Profile API for Faculty
+@app.route('/api/student/<student_id>')
+@login_required
+def get_student_profile(student_id):
+    if current_user.role not in ['faculty', 'admin']:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    student = Student.query.filter_by(student_id=student_id).first()
+    if not student:
+        return jsonify({'error': 'Student not found'}), 404
+    
+    # Get comprehensive student data
+    attendance_percentage = calculate_attendance_percentage(student_id)
+    missing_assignments = count_missing_assignments(student_id)
+    internal_marks = calculate_internal_marks_percentage(student_id)
+    fee_status = check_fee_status(student_id)
+    
+    # Get recent activities
+    recent_tests = TestScore.query.filter_by(student_id=student_id)\
+                                 .order_by(TestScore.test_date.desc()).limit(5).all()
+    recent_attendance = AttendanceRecord.query.filter_by(student_id=student_id)\
+                                             .order_by(AttendanceRecord.date.desc()).limit(10).all()
+    
+    return jsonify({
+        'student': {
+            'student_id': student.student_id,
+            'name': student.name,
+            'class_name': student.class_name,
+            'email': student.email,
+            'phone': student.phone,
+            'risk_level': student.current_risk_level,
+            'risk_score': student.risk_score
+        },
+        'metrics': {
+            'attendance_percentage': attendance_percentage,
+            'missing_assignments': missing_assignments,
+            'internal_marks': internal_marks,
+            'fee_status': fee_status
+        },
+        'recent_tests': [{'subject': t.subject, 'score': t.score, 'max_score': t.max_score, 'date': t.test_date.isoformat()} for t in recent_tests],
+        'recent_attendance': [{'date': a.date.isoformat(), 'status': a.status, 'subject': a.subject} for a in recent_attendance]
+    })
 
 def allowed_file(filename):
     """Check if uploaded file has an allowed extension"""
@@ -993,7 +1242,6 @@ def allowed_file(filename):
 def process_student_data(filepath, action='update'):
     """Process uploaded student data file with replace/update option"""
     import pandas as pd
-    from app import app, db, Student  # make sure to import the Flask app too
 
     # Use app context so SQLAlchemy knows which app to use
     with app.app_context():

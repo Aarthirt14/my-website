@@ -27,16 +27,32 @@
 <!-- Status Cards -->
 <div class="row mb-4">
     <div class="col-md-4">
-        <div class="card bg-success text-white">
+        <div class="card bg-{% if student.current_risk_level == 'safe' %}success{% elif student.current_risk_level == 'warning' %}warning{% else %}danger{% endif %} text-white">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
                         <h5 class="card-title">Current Status</h5>
-                        <h3 class="mb-0">✅ Good Standing</h3>
-                        <small>Keep up the great work!</small>
+                        <h3 class="mb-0">
+                            {% if student.current_risk_level == 'safe' %}
+                                ✅ Safe
+                            {% elif student.current_risk_level == 'warning' %}
+                                🟡 Warning
+                            {% else %}
+                                🔴 High Risk
+                            {% endif %}
+                        </h3>
+                        <small>
+                            {% if student.current_risk_level == 'safe' %}
+                                Keep up the great work!
+                            {% elif student.current_risk_level == 'warning' %}
+                                Need some attention
+                            {% else %}
+                                Requires immediate action
+                            {% endif %}
+                        </small>
                     </div>
                     <div class="align-self-center">
-                        <i class="fas fa-check-circle fa-2x"></i>
+                        <i class="fas fa-{% if student.current_risk_level == 'safe' %}check-circle{% elif student.current_risk_level == 'warning' %}exclamation-triangle{% else %}exclamation-circle{% endif %} fa-2x"></i>
                     </div>
                 </div>
             </div>
@@ -49,7 +65,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h5 class="card-title">Attendance Rate</h5>
-                        <h3 class="mb-0">85%</h3>
+                        <h3 class="mb-0">{{ attendance_percentage|round(1) }}%</h3>
                         <small>Last 30 days</small>
                     </div>
                     <div class="align-self-center">
@@ -66,7 +82,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h5 class="card-title">Average Score</h5>
-                        <h3 class="mb-0">78%</h3>
+                        <h3 class="mb-0">{{ internal_marks|round(1) }}%</h3>
                         <small>This semester</small>
                     </div>
                     <div class="align-self-center">
@@ -131,17 +147,17 @@
             <div class="card-body">
                 <div class="chat-container" id="chatContainer">
                     <div class="chat-message bot">
-                        <strong>AI Counselor:</strong> Hello! I'm here to help you with your studies. How are you feeling about your academic progress today?
+                        <strong>AI Counselor:</strong> Hello {{ student.name }}! I'm here to help you with your studies. I can see your current academic status and provide personalized guidance. How are you feeling about your progress today?
                     </div>
                 </div>
                 <div class="mt-3">
                     <div class="input-group">
-                        <input type="text" class="form-control" id="chatInput" placeholder="Type your message here..." disabled>
-                        <button class="btn btn-primary" type="button" id="sendMessage" disabled>
+                        <input type="text" class="form-control" id="chatInput" placeholder="Type your message here...">
+                        <button class="btn btn-primary" type="button" id="sendMessage">
                             <i class="fas fa-paper-plane me-1"></i>Send
                         </button>
                     </div>
-                    <small class="text-muted">AI Counselor will be available once the chatbot feature is implemented.</small>
+                    <small class="text-muted">Press Enter to send your message. The AI counselor provides personalized academic guidance.</small>
                 </div>
             </div>
         </div>
@@ -159,27 +175,27 @@
             </div>
             <div class="card-body">
                 <div class="list-group list-group-flush">
+                    {% if recent_tests %}
+                        {% for test in recent_tests %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ test.subject }} - {{ test.test_name }}</h6>
+                                <small class="text-muted">{{ test.test_date.strftime('%B %d, %Y') }}</small>
+                            </div>
+                            <span class="badge bg-{% if (test.score/test.max_score*100) >= 75 %}success{% elif (test.score/test.max_score*100) >= 50 %}warning{% else %}danger{% endif %}">
+                                {{ ((test.score/test.max_score)*100)|round(1) }}%
+                            </span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
                     <div class="list-group-item d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="mb-1">Mathematics Test</h6>
-                            <small class="text-muted">Completed yesterday</small>
+                            <h6 class="mb-1">No recent test data</h6>
+                            <small class="text-muted">Test scores will appear here once uploaded</small>
                         </div>
-                        <span class="badge bg-success">85%</span>
+                        <span class="badge bg-secondary">N/A</span>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">Science Class</h6>
-                            <small class="text-muted">Attended 2 days ago</small>
-                        </div>
-                        <span class="badge bg-primary">Present</span>
-                    </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="mb-1">English Assignment</h6>
-                            <small class="text-muted">Submitted 3 days ago</small>
-                        </div>
-                        <span class="badge bg-success">92%</span>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -193,25 +209,47 @@
                 </h5>
             </div>
             <div class="card-body">
+                {% if student.current_risk_level == 'safe' %}
                 <div class="alert alert-success">
                     <h6 class="alert-heading">
                         <i class="fas fa-trophy me-2"></i>Great Progress!
                     </h6>
-                    <p class="mb-0">Your attendance has improved by 10% this month. Keep it up!</p>
+                    <p class="mb-0">You're doing well! Your attendance is {{ attendance_percentage|round(1) }}% and you're keeping up with assignments.</p>
                 </div>
+                {% elif student.current_risk_level == 'warning' %}
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Needs Attention
+                    </h6>
+                    <p class="mb-0">Some areas need improvement. Focus on attendance and assignment submission.</p>
+                </div>
+                {% else %}
+                <div class="alert alert-danger">
+                    <h6 class="alert-heading">
+                        <i class="fas fa-exclamation-circle me-2"></i>Immediate Action Required
+                    </h6>
+                    <p class="mb-0">Please contact your mentor immediately. Multiple areas need urgent attention.</p>
+                </div>
+                {% endif %}
                 
                 <div class="alert alert-info">
                     <h6 class="alert-heading">
                         <i class="fas fa-lightbulb me-2"></i>Study Tip
                     </h6>
-                    <p class="mb-0">Consider reviewing Mathematics concepts daily for 15 minutes to maintain your progress.</p>
+                    <p class="mb-0">
+                        {% if missing_assignments > 0 %}
+                            You have {{ missing_assignments }} pending assignments. Create a schedule to catch up!
+                        {% else %}
+                            Great job staying on top of assignments! Keep this momentum going.
+                        {% endif %}
+                    </p>
                 </div>
                 
-                <div class="alert alert-warning">
+                <div class="alert alert-info">
                     <h6 class="alert-heading">
-                        <i class="fas fa-calendar me-2"></i>Upcoming
+                        <i class="fas fa-robot me-2"></i>AI Counselor Available
                     </h6>
-                    <p class="mb-0">Physics test scheduled for next week. Start preparing early!</p>
+                    <p class="mb-0">Chat with our AI counselor above for personalized study guidance and motivation!</p>
                 </div>
             </div>
         </div>
@@ -239,7 +277,7 @@
                     </div>
                     <div class="col-md-3">
                         <div class="d-grid">
-                            <button class="btn btn-outline-success">
+                            <button class="btn btn-outline-success" onclick="contactMentor()">
                                 <i class="fas fa-user-tie me-2"></i>
                                 Contact Mentor
                             </button>
@@ -266,4 +304,94 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// AI Chatbot functionality
+const chatContainer = document.getElementById('chatContainer');
+const chatInput = document.getElementById('chatInput');
+const sendButton = document.getElementById('sendMessage');
+
+function addMessage(message, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${isUser ? 'user' : 'bot'}`;
+    messageDiv.innerHTML = isUser ? 
+        `<strong>You:</strong> ${message}` : 
+        `<strong>AI Counselor:</strong> ${message}`;
+    
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    // Add user message
+    addMessage(message, true);
+    chatInput.value = '';
+    
+    // Show typing indicator
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'chat-message bot';
+    typingDiv.innerHTML = '<strong>AI Counselor:</strong> <em>Typing...</em>';
+    typingDiv.id = 'typing-indicator';
+    chatContainer.appendChild(typingDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    
+    // Send to AI API
+    fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: message })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Remove typing indicator
+        document.getElementById('typing-indicator').remove();
+        
+        // Add AI response
+        addMessage(data.response);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('typing-indicator').remove();
+        addMessage('Sorry, I encountered an error. Please try again later.');
+    });
+}
+
+// Event listeners
+sendButton.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Quick action functions
+function contactMentor() {
+    alert('Mentor contact feature will be implemented. For now, please email your assigned mentor or visit the faculty office.');
+}
+
+// Initialize with a personalized greeting
+document.addEventListener('DOMContentLoaded', function() {
+    const studentName = '{{ student.name }}';
+    const riskLevel = '{{ student.current_risk_level }}';
+    
+    setTimeout(() => {
+        let greeting = '';
+        if (riskLevel === 'safe') {
+            greeting = `Great to see you, ${studentName}! You're doing well academically. How can I help you maintain this excellent progress?`;
+        } else if (riskLevel === 'warning') {
+            greeting = `Hello ${studentName}! I notice some areas where we can work together to improve your academic performance. What would you like to focus on today?`;
+        } else {
+            greeting = `Hi ${studentName}, I'm here to help you get back on track. Let's work together to address your academic challenges. What's your biggest concern right now?`;
+        }
+        addMessage(greeting);
+    }, 2000);
+});
+</script>
 {% endblock %}

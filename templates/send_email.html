@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Send Email Alerts - Faculty Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-envelope text-primary me-2"></i>
+            Send Email Alerts
+        </h2>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-circle me-2"></i>High Risk Students ({{ high_risk_students|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if high_risk_students %}
+                    <form method="POST" action="{{ url_for('send_email') }}">
+                        <input type="hidden" name="email_type" value="high_risk">
+                        <div class="mb-3">
+                            <label class="form-label">Select Students:</label>
+                            {% for student in high_risk_students %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="student_ids" value="{{ student.student_id }}" id="hr_{{ student.student_id }}">
+                                <label class="form-check-label" for="hr_{{ student.student_id }}">
+                                    {{ student.name }} ({{ student.student_id }}) - {{ student.class_name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="hr_subject" class="form-label">Email Subject:</label>
+                            <input type="text" class="form-control" id="hr_subject" name="subject" value="Urgent: Academic Intervention Required">
+                        </div>
+                        <div class="mb-3">
+                            <label for="hr_message" class="form-label">Message:</label>
+                            <textarea class="form-control" id="hr_message" name="message" rows="4">Dear Student/Guardian,
+
+This is an urgent notification regarding academic performance. The student requires immediate intervention and support.
+
+Key concerns:
+- Low attendance rate
+- Multiple missing assignments
+- Below-average test scores
+- Pending fee payments
+
+Please contact the academic counselor immediately to discuss an action plan.
+
+Best regards,
+Faculty Team</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-paper-plane me-2"></i>Send High Priority Alerts
+                        </button>
+                    </form>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted">No high-risk students at this time!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Warning Students ({{ warning_students|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if warning_students %}
+                    <form method="POST" action="{{ url_for('send_email') }}">
+                        <input type="hidden" name="email_type" value="warning">
+                        <div class="mb-3">
+                            <label class="form-label">Select Students:</label>
+                            {% for student in warning_students %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="student_ids" value="{{ student.student_id }}" id="w_{{ student.student_id }}">
+                                <label class="form-check-label" for="w_{{ student.student_id }}">
+                                    {{ student.name }} ({{ student.student_id }}) - {{ student.class_name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="w_subject" class="form-label">Email Subject:</label>
+                            <input type="text" class="form-control" id="w_subject" name="subject" value="Academic Performance Alert">
+                        </div>
+                        <div class="mb-3">
+                            <label for="w_message" class="form-label">Message:</label>
+                            <textarea class="form-control" id="w_message" name="message" rows="4">Dear Student/Guardian,
+
+We wanted to bring to your attention some areas where academic performance could be improved.
+
+Areas of concern:
+- Attendance could be better
+- Some assignments may be pending
+- Test scores show room for improvement
+
+We recommend:
+- Regular study schedule
+- Attending all classes
+- Seeking help when needed
+- Meeting with academic advisor
+
+Please feel free to reach out if you need any support.
+
+Best regards,
+Faculty Team</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-paper-plane me-2"></i>Send Warning Alerts
+                        </button>
+                    </form>
+                {% else %}
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                        <p class="text-muted">No warning-level students at this time!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Email Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>Send Custom Email
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('send_email') }}">
+                    <input type="hidden" name="email_type" value="custom">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="recipients" class="form-label">Recipients:</label>
+                                <select class="form-select" id="recipients" name="recipients" multiple>
+                                    <option value="all_students">All Students</option>
+                                    <option value="all_guardians">All Guardians</option>
+                                    <option value="high_risk">High Risk Students</option>
+                                    <option value="warning">Warning Students</option>
+                                    <option value="safe">Safe Students</option>
+                                </select>
+                                <div class="form-text">Hold Ctrl/Cmd to select multiple options</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="custom_subject" class="form-label">Subject:</label>
+                                <input type="text" class="form-control" id="custom_subject" name="subject" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="custom_message" class="form-label">Message:</label>
+                        <textarea class="form-control" id="custom_message" name="message" rows="6" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Send Custom Email
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{{ url_for('faculty_dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-select all checkboxes functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Add "Select All" buttons
+    const highRiskForm = document.querySelector('form[action*="send_email"]:first-of-type');
+    const warningForm = document.querySelector('form[action*="send_email"]:nth-of-type(2)');
+    
+    if (highRiskForm) {
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.type = 'button';
+        selectAllBtn.className = 'btn btn-sm btn-outline-secondary mb-2';
+        selectAllBtn.innerHTML = '<i class="fas fa-check-square me-1"></i>Select All';
+        selectAllBtn.onclick = () => toggleAllCheckboxes('hr_', true);
+        
+        const unselectAllBtn = document.createElement('button');
+        unselectAllBtn.type = 'button';
+        unselectAllBtn.className = 'btn btn-sm btn-outline-secondary mb-2 ms-2';
+        unselectAllBtn.innerHTML = '<i class="fas fa-square me-1"></i>Unselect All';
+        unselectAllBtn.onclick = () => toggleAllCheckboxes('hr_', false);
+        
+        const firstCheckbox = highRiskForm.querySelector('.form-check');
+        if (firstCheckbox) {
+            firstCheckbox.parentNode.insertBefore(selectAllBtn, firstCheckbox);
+            firstCheckbox.parentNode.insertBefore(unselectAllBtn, firstCheckbox);
+        }
+    }
+    
+    if (warningForm) {
+        const selectAllBtn = document.createElement('button');
+        selectAllBtn.type = 'button';
+        selectAllBtn.className = 'btn btn-sm btn-outline-secondary mb-2';
+        selectAllBtn.innerHTML = '<i class="fas fa-check-square me-1"></i>Select All';
+        selectAllBtn.onclick = () => toggleAllCheckboxes('w_', true);
+        
+        const unselectAllBtn = document.createElement('button');
+        unselectAllBtn.type = 'button';
+        unselectAllBtn.className = 'btn btn-sm btn-outline-secondary mb-2 ms-2';
+        unselectAllBtn.innerHTML = '<i class="fas fa-square me-1"></i>Unselect All';
+        unselectAllBtn.onclick = () => toggleAllCheckboxes('w_', false);
+        
+        const firstCheckbox = warningForm.querySelector('.form-check');
+        if (firstCheckbox) {
+            firstCheckbox.parentNode.insertBefore(selectAllBtn, firstCheckbox);
+            firstCheckbox.parentNode.insertBefore(unselectAllBtn, firstCheckbox);
+        }
+    }
+});
+
+function toggleAllCheckboxes(prefix, checked) {
+    const checkboxes = document.querySelectorAll(`input[id^="${prefix}"]`);
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = checked;
+    });
+}
+</script>
+{% endblock %}
