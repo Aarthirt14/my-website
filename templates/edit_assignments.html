@@ -38,5 +38,8 @@
         <button type="submit" class="btn btn-primary">Update Assignment</button>
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
     </form>
+    <form method="POST" action="{{ url_for('delete_assignment', id=assignment.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this assignment?');">
+        <button type="submit" class="btn btn-danger mt-3">Delete Assignment</button>
+    </form>
 </div>
 {% endblock %}

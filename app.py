@@ -733,18 +733,14 @@ def faculty_dashboard():
     # Get recent risk assessments
     recent_assessments = RiskAssessment.query.order_by(RiskAssessment.assessment_date.desc()).limit(10).all()
     
-    # --- Fetch assignments too ---
-    assignments = Assignment.query.order_by(Assignment.due_date.desc()).all()
-    
+    # --- REMOVE assignments query and assignments=assignments ---
     return render_template('faculty_dashboard.html', 
                          students=students,
                          total_students=total_students,
                          safe_count=safe_count,
                          warning_count=warning_count,
                          high_risk_count=high_risk_count,
-                         recent_assessments=recent_assessments,
-                         assignments=assignments)  # pass to template
-
+                         recent_assessments=recent_assessments)
 
 @app.route('/student/dashboard')
 @login_required
@@ -1042,7 +1038,7 @@ def process_student_data(filepath, action='update'):
 
 
 
-def process_attendance_data(filepath):
+def process_attendance_data(filepath,action='update'):
     """Process uploaded attendance data file"""
     if filepath.endswith('.csv'):
         df = pd.read_csv(filepath)
@@ -1067,6 +1063,56 @@ def process_attendance_data(filepath):
             db.session.add(record)
     
     db.session.commit()
+@app.route('/faculty/assignments/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_assignment(id):
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    assignment = Assignment.query.filter_by(id=id, faculty_id=faculty.id).first()
+    if not assignment:
+        flash('Assignment not found!', 'error')
+        return redirect(url_for('manage_assignments'))
+    
+    if request.method == 'POST':
+        assignment.title = request.form['title']
+        assignment.description = request.form.get('description', '')
+        assignment.subject = request.form['subject']
+        assignment.class_name = request.form['class_name']
+        assignment.due_date = datetime.strptime(request.form['due_date'], '%Y-%m-%dT%H:%M')
+        assignment.max_marks = float(request.form.get('max_marks', 100))
+        db.session.commit()
+        flash('Assignment updated successfully!', 'success')
+        return redirect(url_for('manage_assignments'))
+    
+    return render_template('edit_assignment.html', assignment=assignment)
+@app.route('/faculty/assignments/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_assignment(id):
+    if current_user.role != 'faculty':
+        flash('Access denied!', 'error')
+        return redirect(url_for('index'))
+    
+    faculty = Faculty.query.filter_by(user_id=current_user.id).first()
+    if not faculty:
+        flash('Faculty profile not found!', 'error')
+        return redirect(url_for('index'))
+    
+    assignment = Assignment.query.filter_by(id=id, faculty_id=faculty.id).first()
+    if not assignment:
+        flash('Assignment not found!', 'error')
+        return redirect(url_for('manage_assignments'))
+    
+    db.session.delete(assignment)
+    db.session.commit()
+    flash('Assignment deleted successfully!', 'success')
+    return redirect(url_for('manage_assignments'))
 
 def process_test_scores_data(filepath):
     """Process uploaded test scores data file"""
